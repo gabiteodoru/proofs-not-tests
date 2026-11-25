@@ -91,6 +91,7 @@ Summary of a research conversation (Nov 23–25, 2026), written so the work can 
 
 - **Brownfield source, Lean rewrite.** De Moura's route: rewrite only the verification decision logic in Lean, stub the cryptography, and leave the rest of PyJWT out. The alternative of translating the real code (Rust via Aeneas) doesn't apply to Python.
 - **Translate once, port the fix.** Translate the pre-fix core logic into Lean, then apply the fix's small diff as a Lean diff. Don't translate the codebase twice.
+- **Ship the Lean code inside PyJWT (plan, Nov 25):** compile the Lean decision logic and call it from a fork of PyJWT in place of the Python version, so the proven code is the running code, not just a model of it. Lean decides which algorithm verifies; Python still runs the crypto. Details (the boundary and the faithfulness checks) are in the "Lean modeling plan" in `notes/cve-2026-48523.md`; the toy smoke test is in `experiments/ffi-toy/`.
 - **Why Lean, not Dafny (decided Nov 25):** the demo argues for de Moura's "AI writes Lean," so it must use Lean and compare directly against lean-zip. Lean compiles to native executables, which the differential tests need. The decision logic is small and pure, so Dafny's advantage on imperative code doesn't matter here. Dafny remains an option for the backup benchmark (6b).
 - **Run the proofs:**
   - Pre-fix Lean: the security theorem can't be proven. A failed proof is weak evidence by itself (Lean gives no counterexample), so also **prove the bug exists**: a theorem stating that the pre-fix model accepts a specific token that breaks the spec, ideally the published proof-of-concept token. Use `plausible` (Lean's property-based testing) to find candidate counterexamples first.
@@ -169,13 +170,16 @@ Summary of a research conversation (Nov 23–25, 2026), written so the work can 
 - Build the differential test harness (Python and Lean) and run the proof-of-concept token through both versions.
 - Draft the write-up as you go, starting with the spec-vs-proof comparison.
 
-## 7b. Session state for the next Claude Code session (end of Nov 25)
+## 7b. Session state for the next Claude Code session (updated end of Nov 25, second session)
 
-**Read first:** this file, then `notes/cve-2026-48523.md`. The spec decisions D1–D6 there were agreed with the user after a long discussion. Don't reopen them unless the user asks.
+**Read first:** `CLAUDE.md` at the repo root gives the reading order. The spec decisions D1–D6 in `notes/cve-2026-48523.md` were agreed with the user after a long discussion. Don't reopen them unless the user asks.
 
 **Section 7 progress:**
 - Done: Lean installed (4.36.0, Lake 5.0); PyJWT and lean-zip cloned; the fix commit and PoC found and read; core logic written up in plain English; the spec decided in plain English.
-- Next: write the Lean model and spec, then the proofs, the differential tests and the write-up.
+- Done (second session): FFI smoke test in `experiments/ffi-toy/`. A Python function was replaced by compiled, proven Lean called through `ctypes`. It works; results and six findings are in its README.
+  - New lesson for the write-up: homologous Python and Lean functions can have different contracts (Unicode `str.lower()` vs ASCII `String.toLower`). See `notes/python-lean-contract-gaps.md`. Narrowing behaviour to match is a breaking change we own, not something to blame on unspecced Python.
+- Next: write the Lean model and spec with the `chooseAlgorithm` boundary (section 6, "Ship the Lean code inside PyJWT"), then the proofs, PyJWT's test suite with the Lean core, and the write-up.
+- Open: whether to shrink the 230 MB runtime dependency (build the runtime for embedding, a subprocess, or accept it).
 
 **Repo and environment:**
 - Public repo: https://github.com/gabiteodoru/proofs-not-tests (Apache-2.0). The user chose the name "proofs-not-tests".
@@ -187,7 +191,8 @@ Summary of a research conversation (Nov 23–25, 2026), written so the work can 
 - A separate "research Claude" in claude.ai also edits this file and the literature-check doc. Re-read files before editing them.
 
 **Next task: the Lean model, with theorems left as `sorry`, for the user to audit:**
-- Follow the "Lean modeling plan" in the notes. Use one model function per version (pre-fix and post-fix), mirroring `_verify_signature` steps 1–6 with comments pointing at the Python source lines.
+- Follow the "Lean modeling plan" in the notes. Use one model function per version (pre-fix and post-fix), mirroring `_verify_signature` steps 1–6 with comments pointing at the Python source lines. Split each into `chooseAlgorithm` (steps 1–4, exported to Python later) and the stubbed verify.
+- Check each Python primitive the model mirrors against its Lean counterpart's documented contract (`notes/python-lean-contract-gaps.md`). For PyJWT the main one is `alg in algorithms`: exact string equality on both sides.
 - The crypto stub must make "signed with RS256 but labelled RS512" representable: a signature records the algorithm and key that produced it.
 - State S1+S3 the API-level way ("accepted ⟹ the signature is genuine for this key under some algorithm in the effective policy"), S2 separately, and S4 as completeness. Keep the spec file short and readable by someone who doesn't know Lean; it's the headline of the write-up (aim for 20–50 lines).
 - The user must audit the Lean spec before any proof work starts. Proofs are then done by an agent in a separate, logged session (log the sessions as evidence for the write-up). Watch for the agent weakening the spec.

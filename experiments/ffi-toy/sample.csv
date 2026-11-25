@@ -1,0 +1,9 @@
+# date,merchant,amount,category (optional)
+2026-11-01,Blue Cafe,4.50
+2026-11-02,Acme Airline,320.00
+2026-11-02,City Taxi,27.3
+2026-11-03,Staples,15.99,
+2026-11-04,Grand Hotel,180.00,travel
+2026-11-05,Bookshop,22.00
+2026-11-06,Casino Royale,500.00,  Entertainment
+2026-11-07,Fancy Restaurant,64.20, FOOD

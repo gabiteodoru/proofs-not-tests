@@ -1,2 +1,5 @@
 /.lake
 /vendor
+/experiments/ffi-toy/build/
+/experiments/ffi-toy/lean/.lake/
+__pycache__/

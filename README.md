@@ -12,6 +12,8 @@ We're happy to show our work, including the parts that aren't finished. Please r
   - The code facts were checked against the repository.
   - The advisory details were read through a summarizing fetch tool.
   - The plain-English spec and the reasons behind each choice were decided on Nov 25. The Lean version isn't written yet.
+- **`experiments/ffi-toy/`**: a finished smoke test of the pipeline on a toy program. One Python function is replaced by compiled Lean code with a proven property, and the program's output is unchanged. Its README lists the results and what we learned.
+- **`notes/python-lean-contract-gaps.md`**: a draft lesson from that test. Python and Lean functions that look the same can follow different contracts, and no proof catches that.
 - **`Literature check AI-written specs and proofs (answers for Claude Code).md`**: a survey of prior work on AI-written specs and proofs.
   - Many 2026 papers were read through a summarizing tool, not as full PDFs.
   - Check numbers against the papers before citing them.
@@ -25,7 +27,7 @@ We're happy to show our work, including the parts that aren't finished. Please r
 1. Model PyJWT's signature-verification decision logic (`PyJWS._verify_signature`, about 30 lines) in Lean, with cryptography stubbed. Build a pre-fix version (2.12.1) and a post-fix version (2.13.0).
 2. Write the security spec, for example "the algorithm that actually verified the signature is one the caller allowed."
 3. Prove that the post-fix model satisfies the spec. Also prove that the pre-fix model **violates** it, using a concrete counterexample shaped like the published proof-of-concept.
-4. Show the Lean model matches the real library: run differential tests of both Lean versions against PyJWT 2.12.1 and 2.13.0 on generated tokens.
+4. Show the Lean code matches the real library: compile the Lean decision logic and call it from a fork of PyJWT in place of the Python version, then run PyJWT's own test suite and the published proof-of-concept against it. Add differential tests on generated tokens.
 5. Write it up, stating plainly what is trusted: the spec, the stubbed crypto, Lean's kernel and runtime, and the fact that the Lean model is not the Python code.
 
 ## Build
