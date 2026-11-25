@@ -179,8 +179,8 @@ Summary of a research conversation (Nov 23–25, 2026), written so the work can 
 
 **Repo and environment:**
 - Public repo: https://github.com/gabiteodoru/proofs-not-tests (Apache-2.0). The user chose the name "proofs-not-tests".
-- Local folder: `/home/gabi/leanbugs`. Branch `main`, pushed at `b9a90ba`.
-- **Uncommitted when this session ended:** the spec section of `notes/cve-2026-48523.md`, the README status line, and this file's edits (the "Higher-severity candidates" list, the "Decision" line and this section). Commit and push only when the user asks; they commit straight to `main`.
+- Local folder: `/home/gabi/leanbugs`. Branch `main`; everything from this session is committed and pushed.
+- Commit and push only when the user asks; they commit straight to `main`.
 - This repo's git email is set locally to the GitHub noreply address on purpose. Don't change it.
 - `vendor/` (PyJWT, lean-zip) is gitignored. Re-clone with `git clone https://github.com/jpadilla/pyjwt.git vendor/pyjwt`. Pre-fix = `95791b1^`, fix = `95791b1`.
 - Lean project: `LeanBugs` library made by `lake init`. `LeanBugs/Basic.lean` is still the `hello` placeholder. No dependencies yet. `plausible` will be needed for counterexample search.
