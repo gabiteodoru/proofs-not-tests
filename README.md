@@ -11,7 +11,7 @@ We're happy to show our work, including the parts that aren't finished. Please r
 - **`notes/cve-2026-48523.md`**: findings from reading PyJWT's source and git history, plus the security advisory.
   - The code facts were checked against the repository.
   - The advisory details were read through a summarizing fetch tool.
-  - The spec in it is a **candidate**, not yet audited.
+  - The plain-English spec and the reasons behind each choice were decided on Nov 25. The Lean version isn't written yet.
 - **`Literature check AI-written specs and proofs (answers for Claude Code).md`**: a survey of prior work on AI-written specs and proofs.
   - Many 2026 papers were read through a summarizing tool, not as full PDFs.
   - Check numbers against the papers before citing them.

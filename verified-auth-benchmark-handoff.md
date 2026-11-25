@@ -78,6 +78,11 @@ Summary of a research conversation (Nov 23–25, 2026), written so the work can 
 - **Main CVE: CVE-2026-48523** (PyJWT 2.9.0–2.12.1, fixed in 2.13.0). The header `alg` was checked against the caller's allow-list, but the signature was verified with the algorithm bound to the PyJWK key object instead. Spec in one sentence: "the algorithm used to verify must be the one that passed the allow-list check." Same pattern as the Artifactory bug: the check and the action use different values or paths.
 - **Stretch goal: CVE-2026-48526** (fixed in 2.13.0, commit 95791b1). An algorithm-confusion bug where a public JWK string was accepted as an HMAC secret. The 2.13.0 fix was itself bypassable (CVE-2026-102272/102273), and the complete fix came in 2.14.0 on 2026-09-11. This is a strong story ("tests passed on 2.13.0, a proof wouldn't have"), but the spec is harder: "an HMAC key is never a public key in any encoding" involves parsing messy key formats.
 - **Fallbacks:** HarbourJwt (Go, CVE-2026-23993, tiny unknown-algorithm bypass); pac4j-jwt (Java, CVE-2026-29000, signature-verification block skipped on null; larger codebase).
+- **Higher-severity candidates for a later headline** (from the research session, Nov 25; CVSS figures from secondary sources, dev.to and Snyk, not yet checked):
+  - **PyJWT CVE-2026-48526,** CVSS 7.4: a public JWK string is accepted as an HMAC secret, so tokens can be forged outright. Includes the "incomplete fix" story (2.13.0 was bypassable; fully fixed in 2.14.0). The spec is harder.
+  - **pac4j-jwt CVE-2026-29000,** CVSS 10.0: a null value skipped the whole signature-verification block. This is the purest "skipped check" story and the closest match to Artifactory. It's Java, with a larger codebase.
+  - **Hono CVE-2026-22817,** CVSS 8.2: algorithm confusion in a fast-growing TypeScript framework. Code size not checked yet.
+- **Decision (Nov 25):** finish CVE-2026-48523 first as the worked example, described accurately as a policy bypass. If that goes well, move on to CVE-2026-48526 next. Checking the pac4j and Hono fix commits for size is still open.
 - **Done (Nov 25):** the fix commit and proof-of-concept for CVE-2026-48523 were read, and the core logic is small: about 30 lines in `PyJWS._verify_signature`, with a 5-line fix. See `notes/cve-2026-48523.md` for the IDs, the decision logic step by step, the PoC, a candidate plain-English spec and the Lean modeling plan.
   - The fix is part of bundled commit `95791b1`. Model only the `_verify_signature` part.
   - Honest scope: the attacker needs a key the verifier already trusts. What breaks is the caller's algorithm policy, not authentication from scratch. Don't overclaim in the headline.
@@ -163,6 +168,32 @@ Summary of a research conversation (Nov 23–25, 2026), written so the work can 
 - Port the fix diff to Lean and have the agent prove it. Watch for spec weakening.
 - Build the differential test harness (Python and Lean) and run the proof-of-concept token through both versions.
 - Draft the write-up as you go, starting with the spec-vs-proof comparison.
+
+## 7b. Session state for the next Claude Code session (end of Nov 25)
+
+**Read first:** this file, then `notes/cve-2026-48523.md`. The spec decisions D1–D6 there were agreed with the user after a long discussion. Don't reopen them unless the user asks.
+
+**Section 7 progress:**
+- Done: Lean installed (4.36.0, Lake 5.0); PyJWT and lean-zip cloned; the fix commit and PoC found and read; core logic written up in plain English; the spec decided in plain English.
+- Next: write the Lean model and spec, then the proofs, the differential tests and the write-up.
+
+**Repo and environment:**
+- Public repo: https://github.com/gabiteodoru/proofs-not-tests (Apache-2.0). The user chose the name "proofs-not-tests".
+- Local folder: `/home/gabi/leanbugs`. Branch `main`, pushed at `b9a90ba`.
+- **Uncommitted when this session ended:** the spec section of `notes/cve-2026-48523.md`, the README status line, and this file's edits (the "Higher-severity candidates" list, the "Decision" line and this section). Commit and push only when the user asks; they commit straight to `main`.
+- This repo's git email is set locally to the GitHub noreply address on purpose. Don't change it.
+- `vendor/` (PyJWT, lean-zip) is gitignored. Re-clone with `git clone https://github.com/jpadilla/pyjwt.git vendor/pyjwt`. Pre-fix = `95791b1^`, fix = `95791b1`.
+- Lean project: `LeanBugs` library made by `lake init`. `LeanBugs/Basic.lean` is still the `hello` placeholder. No dependencies yet. `plausible` will be needed for counterexample search.
+- A separate "research Claude" in claude.ai also edits this file and the literature-check doc. Re-read files before editing them.
+
+**Next task: the Lean model, with theorems left as `sorry`, for the user to audit:**
+- Follow the "Lean modeling plan" in the notes. Use one model function per version (pre-fix and post-fix), mirroring `_verify_signature` steps 1–6 with comments pointing at the Python source lines.
+- The crypto stub must make "signed with RS256 but labelled RS512" representable: a signature records the algorithm and key that produced it.
+- State S1+S3 the API-level way ("accepted ⟹ the signature is genuine for this key under some algorithm in the effective policy"), S2 separately, and S4 as completeness. Keep the spec file short and readable by someone who doesn't know Lean; it's the headline of the write-up (aim for 20–50 lines).
+- The user must audit the Lean spec before any proof work starts. Proofs are then done by an agent in a separate, logged session (log the sessions as evidence for the write-up). Watch for the agent weakening the spec.
+- Prove `pre_fix_bug` with the PoC shape: key bound to RS256, header RS512, allow-list `[RS512]`, RS256 signature.
+
+**How this user likes to work:** they want concepts explained step by step, and they push back on imprecise wording, so be exact. No ASCII tables in .md files (nested bullet lists instead). They aim for a public portfolio piece, and drafts are fine if labelled as drafts.
 
 ## 8. Key sources
 
