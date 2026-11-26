@@ -23,6 +23,7 @@
 - **Lone surrogates (checked):** a Python `str` can contain lone surrogates (for example `"\ud800"`, or text decoded with `surrogateescape`). `"\ud800".encode("utf-8")` raises `UnicodeEncodeError: surrogates not allowed`. A Lean `Char` carries a proof of `Char.isValidCharNat`: `n < 55296 ∨ (57343 < n ∧ n < 1114112)`, which excludes U+D800–DFFF. So such a string can't reach Lean as a `String` at all, and the glue must decide what happens (reject, most likely). Not yet tested through the FFI.
 - **Integers:** Python `int` is unbounded; Lean `Nat`/`Int` are unbounded too, but `UInt64` etc. wrap. Use the unbounded types, or check ranges in the glue.
 - **Equality:** Python `==` on `str` and Lean `String` equality both compare code points, with no Unicode normalization. They agree, which is good news for PyJWT's `alg not in algorithms` check. Normalization (NFC vs NFD) is a gap only if one side normalizes and the other doesn't.
+- **Membership, `in` (checked Nov 26):** `alg in algorithms` is exact string equality only when `algorithms` is a list. When the caller passes a `str`, Python tests for a substring: `"ES256" in "ES256K"` is true, and PyJWT `master` then accepts an ES256 token. Lean's `List.contains` / `∈` has no such case, because a Lean `List String` can't be a `String`. The type hint `Sequence[str]` admits a `str`. Details and impact: `notes/cve-2026-48523.md`, "Investigated: … RFC 8725 §3.1".
 
 ## Is there a formal way to deal with it?
 
