@@ -107,9 +107,35 @@ Summary of a research conversation (Nov 23–25, 2026), written so the work can 
 
 - **Spec vs proof size:** the human-readable spec (aim for 20–50 lines) next to the AI-written proof (much longer). That ratio is the headline.
 - **The trusted base, stated plainly:** the spec, the stubbed crypto, Lean's kernel and runtime, and the fact that the Lean model is not the Python code. Cite the lean-zip lesson that proofs cover only what the spec asks.
-- **Proof vs tests:** proofs cover what the spec asks about; tests and fuzzing cover what nobody thought to specify. Say which part covers which claim.
-- **At least one case of the agent gaming or weakening the spec,** and how it was caught.
+- **Proof vs tests:** proofs cover what the spec asks about; tests and fuzzing cover what nobody thought to specify. Say which part covers which claim. The argument for proofs is below, under "Why proofs rather than tests".
+- **At least one case of the agent gaming or weakening the spec,** and how it was caught. A rehearsal from the toy (Nov 26): an early audit layout let a proof file define its own, weaker copy of the claim, and the check compared against the fake. It was found by deliberately trying it, not by reading. See `experiments/ffi-toy/README.md`, Results.
 - **Costs:** agent time, tokens, and the minutes a human spent auditing.
+- **The measurements** listed below, under "Measurements for the write-up".
+
+### Why proofs rather than tests (the argument for the write-up)
+
+Discussed with the user Nov 26. The claim isn't that proofs remove the need for evidence: it's that they shrink the region that needs it, and make that region explicit.
+
+- **The bug was an unenforced idea, not a missing one.** RFC 8725 §3.1 (February 2020) required exactly the property the bug broke, as a "MUST", more than four years before the bug-introducing commit (May 2024). Writing the property down, even in an IETF standard, didn't stop the code drifting from it when a new feature added a second source of algorithms. The missing piece was a mechanical link between the written property and the code. Details and quotes: `notes/cve-2026-48523.md`, "External spec: RFC 8725".
+
+- **Coverage.** Tests check a sample of inputs: `difftest.py` in the toy checks 100,000 out of an effectively infinite space. A proof covers all inputs. The honest comparison is the chance that a sample hits the bad region, which is tiny for bugs that need a specific combination of inputs.
+- **Adversaries (decisive for security).** Probability arguments assume random inputs. An attacker searches for the one input that breaks the code, so "passes 99.999% of random inputs" means nothing against them. Within what the claim covers, a proof doesn't depend on how clever the attacker is. CVE-2026-48523 is this shape: a specific combination of key type, header algorithm and allow-list.
+- **Residual risk: open-ended vs listed.** After testing, what remains is "inputs nobody tried": invisible and unbounded. After proving, what remains is the trusted list: the claim, the trusted base and the wiring. It is finite, written down and auditable.
+- **Evidence reused vs regathered.** The kernel's trustworthiness is established once and shared by every Lean project. Test evidence belongs to one program and must be regathered after each change. A change that breaks the property breaks the build; tests catch only the regressions they happen to cover.
+- **Where evidence is still needed.** Inside Lean, a checked proof is deduction, not evidence. Around it, everything is an empirical claim:
+  - what the tools do (that a check fires when it should; even that the kernel has no bugs, which is supported by years of use, a small kernel, and independent re-checkers such as `lean4lean` and `nanoda`, both shipped in the 4.36 toolchain's `bin/`);
+  - the bridges between the formal claim and reality: that the claim captures intent, that the compiled code matches the definition, that the wiring passes data unchanged.
+  - Pure mathematics has the same structure: confidence in a published proof rests on review and time. Lean moves that need from every proof to a small, fixed base.
+- **Costs, stated fairly.** Writing proofs has historically taken person-years (seL4: roughly 20 person-years for under 10,000 lines of C, by its authors' account); de Moura's thesis is that AI makes this cheap, and this project is a small test of it. Specs take skill, and a wrong spec gives false confidence. Integration costs we hit: the 230 MB runtime, Python/Lean contract gaps, trusted wiring.
+- **Scale, honestly.** The toy doesn't show the gain: a human audits about 5 lines of claim plus about 140 lines of checks, scripts and wiring to cover about 30 lines of code, which is worse than reading the code. The gain appears when code is much larger than its claim (lean-zip: about 32k lines of proof). Say so in the write-up.
+
+### Measurements for the write-up
+
+1. **Tests vs proof on the buggy version:** how many tests in PyJWT's own suite pass on the pre-fix code (presumably all, since the bug shipped), next to the `pre_fix_bug` theorem exhibiting a concrete attack. This contrast is the headline.
+2. **Fuzzing hit rate:** run a standard fuzzer against pre-fix PyJWT for a fixed time; record whether, and when, it finds the bug.
+3. **Audit size vs code covered:** lines a human must read (claim, checks, scripts, wiring) vs lines of logic the proof covers.
+4. **Proof cost:** time and tokens from the logged agent sessions. This is the number de Moura's thesis is about.
+5. **What the proof didn't cover:** the trusted list, stated plainly, so the comparison is fair.
 
 ## 6b. Backup plan: planted-bug benchmark (independent-dev contribution)
 
@@ -170,7 +196,7 @@ Summary of a research conversation (Nov 23–25, 2026), written so the work can 
 - Build the differential test harness (Python and Lean) and run the proof-of-concept token through both versions.
 - Draft the write-up as you go, starting with the spec-vs-proof comparison.
 
-## 7b. Session state for the next Claude Code session (updated end of Nov 25, second session)
+## 7b. Session state for the next Claude Code session (updated Nov 26, third session)
 
 **Read first:** `CLAUDE.md` at the repo root gives the reading order. The spec decisions D1–D6 in `notes/cve-2026-48523.md` were agreed with the user after a long discussion. Don't reopen them unless the user asks.
 
@@ -178,12 +204,16 @@ Summary of a research conversation (Nov 23–25, 2026), written so the work can 
 - Done: Lean installed (4.36.0, Lake 5.0); PyJWT and lean-zip cloned; the fix commit and PoC found and read; core logic written up in plain English; the spec decided in plain English.
 - Done (second session): FFI smoke test in `experiments/ffi-toy/`. A Python function was replaced by compiled, proven Lean called through `ctypes`. It works; results and six findings are in its README.
   - New lesson for the write-up: homologous Python and Lean functions can have different contracts (Unicode `str.lower()` vs ASCII `String.toLower`). See `notes/python-lean-contract-gaps.md`. Narrowing behaviour to match is a breaking change we own, not something to blame on unspecced Python.
+- Done (third session, Nov 26): restructured the toy for human audit, with the user. One human-audited Lean file (`lean/Toy/Audit.lean`: the claim plus four mechanical checks) and `audit.sh`; the code and proof files are not read by hand. `attacks.sh` shows each check firing on a sabotage. The steps are in the toy README's "How to audit". The argument for proofs over tests, and the measurements to take, are in section 6.
 - Next: write the Lean model and spec with the `chooseAlgorithm` boundary (section 6, "Ship the Lean code inside PyJWT"), then the proofs, PyJWT's test suite with the Lean core, and the write-up.
 - Open: whether to shrink the 230 MB runtime dependency (build the runtime for embedding, a subprocess, or accept it).
+- Open (Nov 26): does PyJWT, and our spec, conform to RFC 8725 §3.1? The candidate gap is "one algorithm per key" for raw keys. Unchecked; the user plans a separate session for it. The brief, with the questions to answer, is in `notes/cve-2026-48523.md`, "To investigate". Don't file anything publicly without the user's go-ahead.
+- Open (Nov 26): CI (`.github/workflows/lean_action_ci.yml`) builds only the root library, so the toy's audit checks never run there. Consider running `experiments/ffi-toy/audit.sh` in CI, and the same for the PyJWT audit later.
+- Open (Nov 26): section 6's "trusted base" bullet says "the Lean model is not the Python code". That predates the plan to ship the compiled Lean inside PyJWT: still true for the stubbed crypto, not for the algorithm choice. Left for the user to reword, since the research Claude also edits section 6.
 
 **Repo and environment:**
 - Public repo: https://github.com/gabiteodoru/proofs-not-tests (Apache-2.0). The user chose the name "proofs-not-tests".
-- Local folder: `/home/gabi/leanbugs`. Branch `main`; everything from this session is committed and pushed.
+- Local folder: `/home/gabi/leanbugs`. Branch `main`.
 - Commit and push only when the user asks; they commit straight to `main`.
 - This repo's git email is set locally to the GitHub noreply address on purpose. Don't change it.
 - `vendor/` (PyJWT, lean-zip) is gitignored. Re-clone with `git clone https://github.com/jpadilla/pyjwt.git vendor/pyjwt`. Pre-fix = `95791b1^`, fix = `95791b1`.
@@ -194,11 +224,16 @@ Summary of a research conversation (Nov 23–25, 2026), written so the work can 
 - Follow the "Lean modeling plan" in the notes. Use one model function per version (pre-fix and post-fix), mirroring `_verify_signature` steps 1–6 with comments pointing at the Python source lines. Split each into `chooseAlgorithm` (steps 1–4, exported to Python later) and the stubbed verify.
 - Check each Python primitive the model mirrors against its Lean counterpart's documented contract (`notes/python-lean-contract-gaps.md`). For PyJWT the main one is `alg in algorithms`: exact string equality on both sides.
 - The crypto stub must make "signed with RS256 but labelled RS512" representable: a signature records the algorithm and key that produced it.
-- State S1+S3 the API-level way ("accepted ⟹ the signature is genuine for this key under some algorithm in the effective policy"), S2 separately, and S4 as completeness. Keep the spec file short and readable by someone who doesn't know Lean; it's the headline of the write-up (aim for 20–50 lines).
+- State S1+S3 the API-level way ("accepted ⟹ the signature is genuine for this key under some algorithm in the effective policy"), S2 separately, and S4 as completeness. Keep the spec short and readable by someone who doesn't know Lean; it's the headline of the write-up (aim for 20–50 lines).
+- Use the toy's audit layout (`experiments/ffi-toy/README.md`, "How to audit"):
+  - one human-audited file holding the world model (the crypto stub), the claims and the checks;
+  - the proofs in a separate file that doesn't import the audited one, so the agent never edits the audited file;
+  - claims stated about any function of the right shape, then bound to the exported function;
+  - an `audit.sh` and an `attacks.sh` like the toy's.
 - The user must audit the Lean spec before any proof work starts. Proofs are then done by an agent in a separate, logged session (log the sessions as evidence for the write-up). Watch for the agent weakening the spec.
 - Prove `pre_fix_bug` with the PoC shape: key bound to RS256, header RS512, allow-list `[RS512]`, RS256 signature.
 
-**How this user likes to work:** they want concepts explained step by step, and they push back on imprecise wording, so be exact. No ASCII tables in .md files (nested bullet lists instead). They aim for a public portfolio piece, and drafts are fine if labelled as drafts.
+**How this user likes to work:** they want concepts explained step by step, and they push back on imprecise wording, so be exact. They are new to both Lean and security, and are learning as the project goes. When they ask a question, answer it first, then investigate; don't start running tools before answering. Say why before starting anything slow, and keep long runs out of the way (for example, the slow `leanchecker --fresh` mistake on Nov 26). No ASCII tables in .md files (nested bullet lists instead). They aim for a public portfolio piece, and drafts are fine if labelled as drafts.
 
 ## 8. Key sources
 

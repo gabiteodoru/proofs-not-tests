@@ -2,7 +2,7 @@
 
 Everything except `categorize` is the unchanged code from `expenses.py`.
 `categorize` here is glue only: it marshals arguments to the Lean function
-`Toy.categorize` (proven: an accepted category is on the allow-list) through
+`Toy.categorizeFFI` (proven: an accepted category is on the allow-list) through
 the C shim in `c/toy_shim.c`. This glue and the shim are trusted, not proven.
 """
 

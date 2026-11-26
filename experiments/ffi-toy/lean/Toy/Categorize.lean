@@ -35,13 +35,6 @@ def categorize (merchant : String) (declared : Option String) (allowed : List St
   if category ∈ allowed then .ok category
   else .error s!"category '{category}' is not allowed"
 
-/-- The property we care about: an accepted category is always on the allow-list. -/
-theorem categorize_allowed {merchant : String} {declared : Option String}
-    {allowed : List String} {c : String}
-    (h : categorize merchant declared allowed = .ok c) : c ∈ allowed := by
-  unfold categorize at h
-  by_cases hm : chooseCategory merchant declared ∈ allowed <;> simp_all
-
 /-- C-callable entry point. Exactly `categorize`; only the list type differs
 (an `Array` is easier to build from C).
 
