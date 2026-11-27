@@ -4,10 +4,12 @@
 
 ## What's here
 
+- `SPEC.md`: the plain-English spec for `categorize` that both implementations must meet. Agreed Nov 27; not yet implemented.
 - `expenses.py`: the all-Python original, a small expense-report CLI. It reads `sample.csv` and prints totals per category.
 - `lean/Toy/`, split so that a human audits only what is claimed:
   - `Categorize.lean`: the code. `categorize` rewritten in Lean, and `categorizeFFI`, the C-callable export, which is `categorize` itself with an `Array` in place of a `List`. Not read by hand.
   - `Proof.lean`: the proof, stating the claim in its own words. Not read by hand.
+  - `Spec.lean`: **human-audited, draft (Nov 27).** `SPEC.md`'s definitions and claims C1–C4 in Lean. Not yet connected to the checks below; the planned layout is in the handoff, section 7b.
   - `Audit.lean`: **human-audited.** The claim (for any function of `categorizeFFI`'s shape: if it accepts a category, the category is on the allow-list) and four checks, each of which fails the build:
     1. the theorem in `Proof.lean` proves exactly this claim, about `categorizeFFI`;
     2. the proof uses no `sorry` and no axioms beyond Lean's standard three;

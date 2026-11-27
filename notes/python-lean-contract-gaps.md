@@ -24,6 +24,8 @@
 - **Integers:** Python `int` is unbounded; Lean `Nat`/`Int` are unbounded too, but `UInt64` etc. wrap. Use the unbounded types, or check ranges in the glue.
 - **Equality:** Python `==` on `str` and Lean `String` equality both compare code points, with no Unicode normalization. They agree, which is good news for PyJWT's `alg not in algorithms` check. Normalization (NFC vs NFD) is a gap only if one side normalizes and the other doesn't.
 - **Membership, `in` (checked Nov 26):** `alg in algorithms` is exact string equality only when `algorithms` is a list. When the caller passes a `str`, Python tests for a substring: `"ES256" in "ES256K"` is true, and PyJWT `master` then accepts an ES256 token. Lean's `List.contains` / `∈` has no such case, because a Lean `List String` can't be a `String`. The type hint `Sequence[str]` admits a `str`. Details and impact: `notes/cve-2026-48523.md`, "Investigated: … RFC 8725 §3.1".
+- **ASCII-only input is not enough (checked Nov 27):** on ASCII alone, Python's default `str.strip()` removes 10 characters (tab, LF, `\v`, `\f`, CR, `\x1c`–`\x1f`, space); Lean's `trimAscii` removes 4 (space, tab, CR, LF). `"\x1cfood\x0b".strip()` is `"food"` in Python; Lean keeps both control characters. Banning control characters (printable ASCII, `0x20`–`0x7e`) removes the difference: then every one of these trims does the same thing.
+- **The same gap in the toy (checked Nov 27):** `expenses.categorize("x", "foo", "food travel")` returns `"foo"`, since `in` on a `str` is a substring search. The Lean path rejects it: the glue turns the string into a list of one-character strings. `difftest.py` never generates a `str` allow-list, so it never saw this.
 
 ## Is there a formal way to deal with it?
 
@@ -55,6 +57,34 @@ Nothing removes the gap completely, because at some point a formal object has to
   - **Change deliberately:** restrict the domain (option 3) and treat it as a breaking change: give a reason, measure whether real inputs hit it (logs, test suites), document it, and bump the version. Rejecting what you don't understand is often right for security code, but it is a decision someone signs.
   - **Fall back:** the proven Lean path handles the restricted domain, and the old Python path handles the rest. Behaviour is preserved, but the proof covers only the restricted domain, and claims must say so ("proven for ASCII inputs").
 - Writing a spec forces decisions the original code made by accident (did the author mean `strip()` to remove U+00A0, or did they just reach for `strip()`?). Making that call explicitly is the "human audits the spec" step. The process must surface it, not decide it silently.
+
+## Character decisions are security decisions (write-up material, Nov 27)
+
+Agreed with the user: which characters a field accepts, and how they're normalized, is a decision a human makes in the spec, per field, from what the field means. Each choice decides which of these attack classes are possible:
+
+- **Normalization collisions:** two different inputs become equal after case mapping, so a check passes for the wrong input.
+  - In 2019 GitHub's password reset was attacked this way: an email with a dotless `ı` matched another user's address after case mapping (`"ı".upper()` is `"I"`). From memory (John Gracey, "Hacking GitHub with Unicode's dotless 'i'", Nov 2019); check the source before citing.
+  - Checked in Python 3.12: `"K".lower()` (Kelvin sign) is `"k"`; `"ß".upper()` is `"SS"`; `"ﬁ".upper()` is `"FI"`; `"İ".lower()` is two code points.
+- **Lookalikes (homoglyphs):** Cyrillic `а` vs Latin `a`. Harmless for exact comparison, dangerous wherever a human reads the value (logs, UIs).
+- **Control characters:** CR/LF forges log lines; ESC sequences rewrite terminal output; NUL truncates C strings (null-byte injection).
+- **Invisible and direction-changing characters:** zero-width characters, and the bidi overrides behind "Trojan Source" (CVE-2021-42574).
+
+Two tools, and the spec names which one each field uses:
+- **Narrow the domain:** e.g. printable ASCII. It removes all four classes at once and makes Python and Lean primitives agree (see the ASCII entry above). A good MVP default.
+- **Match the primitives:** accept wider input (e.g. Unicode merchant names, which real data has) but use normalization that is identical on both sides, like the toy's ASCII-only lowercasing.
+
+**Future work: non-ASCII support** (not for the toy, not for an MVP). It needs more than a Lean function:
+- Lean 4.36's `Char.toLower` is ASCII-only, so Unicode case mapping means writing or importing Unicode case tables in Lean.
+- It reopens the collision question, so the spec must choose a normalization (case folding, NFC/NFKC) and say why.
+- "Match Python" means matching a specific Unicode version (next section).
+
+## Dependency upgrades change contracts (Nov 27)
+
+- Python's `str.lower()` follows the Unicode database bundled with the interpreter, and that changes with Python releases. Unicode keeps existing case pairs stable, so the change is mainly that newly assigned characters gain mappings: a code point `lower()` left alone in one Python version can be lowercased in the next.
+- Checked: Python 3.12.3 (Unicode 15.0) and 3.13.11 (Unicode 15.1) have identical `lower()` on every code point (1,433 characters change, the same ones in both). Not checked: Python 3.14, which moves to Unicode 16.0, a release that added cased scripts. Verify before citing.
+- A careful developer would have to review this on every upgrade. Changelogs give one line ("unicodedata updated"), and no tool maps Unicode data changes onto the calls a codebase makes. Almost nobody does this.
+- **Narrowing the domain removes the review:** on printable ASCII, `lower()` gives the same result in every version.
+- **Lean has the same problem, and the build catches part of it.** Removed or renamed functions break the build (`String.trim` was gone in 4.36). A change in meaning that the proof depends on makes the proof fail. A change the claim doesn't depend on goes unnoticed, which is fine for the claim and says nothing about other behaviour.
 
 ## Proposed practice for this project
 
