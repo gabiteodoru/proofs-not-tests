@@ -1,4 +1,9 @@
-none-yet
+ab614feebb05a594b00bf5395683b769e44b6d33
+
+PROVISIONAL (Nov 28, 2026): this commit added the comparator layout. The user
+has not yet read Spec.lean line by line, so it records "the audited files as
+of this commit", not "files a human approved". When the user has read them,
+the user (not Claude) writes the hash of the commit they read here.
 
 The first line is the commit whose audited files (the list at the top of
 audit.sh) a human read and approved. audit.sh fails if any of them differ
