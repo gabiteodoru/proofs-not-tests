@@ -24,3 +24,4 @@ A public portfolio repo: a Lean proof that the fix for PyJWT CVE-2026-48523 (an 
 - Keep session state and repo rules in handoff section 7b, not here; this file only points. Update 7b at the end of a session.
 - Each fact has one home; elsewhere, summarize in a line and point to it.
 - Lean 4.36.0. `lake build` at the root builds the main library; `experiments/ffi-toy/build.sh` builds the toy.
+- To move or copy a block of lines between files (or within one), use `cut_paste.py` at the root: `./cut_paste.py {copy|cut} <src> <start> <end> <dst> <dst_line> [--yes]`. Lines are 1-indexed and inclusive; the block goes before `dst_line`, or at the end if it's 0; `dst` is created if missing. It asks before writing unless `--yes` is given.
