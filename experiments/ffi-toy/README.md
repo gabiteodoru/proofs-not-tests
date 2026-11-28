@@ -4,11 +4,12 @@
 
 ## What's here
 
-- `SPEC.md`: the plain-English spec for `categorize` that both implementations must meet. Agreed Nov 27; not yet implemented.
+- `SPEC.md`: the plain-English spec for `categorize` that both implementations must meet. Agreed Nov 27; read line by line and approved by the user Nov 28; not yet implemented.
+- `SPEC-NOTES.md`: optional notes on `SPEC.md`, not audited: decisions D1–D6 with their reasons, changes from today's behaviour, what's out of scope, and a note for the write-up.
 - `expenses.py`: the all-Python original, a small expense-report CLI. It reads `sample.csv` and prints totals per category.
 - The Lean project, `lean/`, split by who writes each file and who reads it (why: `notes/audit-integrity.md`):
   - **Human-audited** (read by a person):
-    - `Toy/Spec.lean`: `SPEC.md`'s definitions and claims C1–C4 in Lean. Statements only: no proofs, no checks. Draft (Nov 27), not yet read line by line by the user.
+    - `Toy/Spec.lean`: `SPEC.md`'s definitions and claims C1–C4 in Lean. Statements only: no proofs, no checks. Draft (Nov 27), not yet read line by line by the user (`SPEC.md` was, Nov 28).
     - `Challenge.lean`: the theorems to prove, each a claim from `Spec.lean` about `categorizeFFI`, with `sorry` as the proof. Only C1 so far; C2–C4 join when the implementation meets `SPEC.md`.
     - `comparator.json`: which theorems the comparator judges, and the permitted axioms (Lean's standard three).
     - `lakefile.toml`: three libraries: `Toy` (spec and implementation), `Challenge` and `Solution`.

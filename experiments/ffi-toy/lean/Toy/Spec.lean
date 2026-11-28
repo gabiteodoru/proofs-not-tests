@@ -96,7 +96,7 @@ def Valid (merchant : String) (declared : Option String) (allowed : Array String
 
 /-! ## Claims (SPEC.md, "Claims to prove in Lean"), for any `f` of the right shape -/
 
-/-- C1, safety: an accepted category is an element of `allowed`. -/
+/-- C1, critical claim: an accepted category is an element of `allowed`. -/
 def C1 (f : CategorizeShape) : Prop :=
   ∀ merchant declared allowed c,
     f merchant declared allowed = .ok c → c ∈ allowed
