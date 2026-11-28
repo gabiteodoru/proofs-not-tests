@@ -81,3 +81,10 @@ Tested with a prototype's `run-attacks.sh` (in git history, removed Nov 28). Eve
 
 It checks kernel declarations only. `@[export]`, `@[implemented_by]` and `@[extern]` aren't part of them, so the toy's checks 3 and 4, and "the library Python loads is built from the challenge's code", are still needed. They can run on the trusted challenge alone, where shadowing from the solution can't reach them.
 - Tested Nov 28: `getExportNameFor? env` and `Compiler.getImplementedBy? env` / `isExtern env` work on an environment loaded with `importModules … (loadExts := false)`. They returned `toy_categorize` and `[]` on the honest copy, and `toy_other` and `[Toy.guess]` on the toy's two code sabotages. The comparator accepted both sabotages.
+
+## Nov 28, 2026: silencing the `sorry` warning for one declaration
+
+- **`set_option warn.sorry false in` before a declaration turns off its "declaration uses `sorry`" warning, and only its.** Tested in a scratch file with three theorems proven by `sorry`, the option on the middle one: `lean` warned for the first and the third only.
+- **The `sorry` is still recorded.** `#print axioms` on the silenced theorem printed `[sorryAx]`. So the option can't hide a `sorry` from the comparator's axiom check; it only removes the message.
+- Used in the toy's `Challenge.lean`, where the `sorry` proofs are expected.
+- Repeat: put `theorem a : 1 = 1 := sorry`, then `set_option warn.sorry false in` and `theorem b : 2 = 2 := sorry`, then `theorem c : 3 = 3 := sorry` and `#print axioms b` in a file, and run `lean` on it.
