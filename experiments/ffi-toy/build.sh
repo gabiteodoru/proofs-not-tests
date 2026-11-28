@@ -5,8 +5,10 @@ cd "$(dirname "$0")"
 P=$(lean --print-prefix)
 mkdir -p build
 
-# 1. Lean -> C (also checks every proof).
-(cd lean && lake build)
+# 1. Lean -> C. Builds only the code: the library needs nothing else, and this
+#    way no agent-written file (Solution.lean) is built outside the comparator's
+#    sandbox. The proofs are checked by audit.sh, not here.
+(cd lean && lake build Toy.Categorize:c)
 
 # 2. C -> objects. The generated Lean C compiles with leanc (Lean's bundled
 #    clang); the shim needs libc headers that leanc's sysroot lacks, so gcc.

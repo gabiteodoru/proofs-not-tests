@@ -6,8 +6,8 @@ A line-by-line translation of `../../SPEC.md` ("Definitions", "Behaviour",
 translates. This file imports nothing from the code or the proofs, so it
 depends only on Lean's core library.
 
-DRAFT, Nov 27, 2026: written for the user's audit. Not yet connected to the
-code: no theorem proves C1–C4 about `categorizeFFI` yet.
+DRAFT, Nov 27, 2026: written for the user's audit. Connected to the code by
+`../Challenge.lean`, which states C1 about `categorizeFFI` (C2–C4 not yet).
 -/
 
 namespace Toy.Spec

@@ -1,6 +1,6 @@
 # Audit integrity: is the proven claim the one a human audited?
 
-Design issues found on Nov 27–28, 2026, while testing the toy's audit. The Lean facts behind them, with the commands to repeat each test, are in `notes/lean-learnings.md`. A tested prototype and every attack: `experiments/ffi-toy/comparator-prototype/`. This note records what the issues mean for the project's design and argument, and the plan for the toy (last section).
+Design issues found on Nov 27–28, 2026, while testing the toy's audit. The Lean facts behind them, with the commands to repeat each test, are in `notes/lean-learnings.md`. The toy's audit now implements the fixes (Nov 28): `experiments/ffi-toy/audit.sh`, with every attack in `experiments/ffi-toy/attacks.sh`. This note records what the issues mean for the project's design and argument, and the plan that was followed (last section).
 
 ## Summary
 
@@ -98,7 +98,7 @@ Why this list exists: finding attacks one at a time has the same weakness as tes
 
 None of the issues so far was a flaw in Lean's proof checking: every fake was a valid proof of what it stated. They were all at the edges listed here.
 
-Status words: **closed (tested)** means an attack was run and caught (`experiments/ffi-toy/comparator-prototype/run-attacks.sh`); **closed (planned)** means the design closes it but it isn't implemented or tested yet; **trusted** means we rely on it without checking it.
+Status words: **closed (tested)** means an attack was run through the whole audit and caught (`experiments/ffi-toy/attacks.sh`); **closed (planned)** means the design closes it but it isn't implemented or tested yet; **trusted** means we rely on it without checking it.
 
 1. **Proof files into what humans read.** An audit file that imports the proofs lets them shadow names or redefine syntax (Issue 1).
    - Closed (tested): nothing humans read imports the proofs. The comparator compares compiled terms, inside a sandbox.
@@ -106,23 +106,23 @@ Status words: **closed (tested)** means an attack was run and caught (`experimen
    - Closed (tested): `CheckChallenge.lean` checks each statement as a term built from literal names, and that the code declares no syntax. The syntax check recognizes syntax by declaration type; that list covered every attack tried but isn't proven complete. The statement check is the main guard.
 3. **The spec's own meaning.** `Spec.lean` imports nothing, so its text means what Lean's core language says it means.
    - Trusted: Lean's core language and prelude, as for any language.
-   - Closed (planned): the file check keeps its text, including the import lines, as audited. A mechanical "imports nothing" check would be cheap to add.
+   - Closed (tested): the file check keeps its text, including the import lines, as audited. A mechanical "imports nothing" check would be cheap to add.
 4. **Which files are judged.** An edited spec, code or lakefile is judged against itself (Issue 3).
-   - Closed (planned): the file check against the audited commit. Tested in the prototype by the trusted-export variant.
+   - Closed (tested): the file check against the audited commit (`edit-spec` in `attacks.sh`).
    - Trusted: the record of the audited commit; only the user updates it.
 5. **Build outputs.** The agent's builds write `.lake/`, which holds compiled copies of the spec and the code.
-   - Closed (planned): every audit step runs in a clean clone. Whether Lake would actually reuse a tampered build output is untested; the clean clone avoids depending on the answer.
+   - Closed (implemented): every audit step after the file check runs in a clean clone. Whether Lake would actually reuse a tampered build output is untested; the clean clone avoids depending on the answer.
 6. **Agent code running during builds.** Lean runs `#eval` and macros while compiling.
    - Closed (tested): the comparator builds inside `bwrap`. Writing project files, reading the home directory and network access were blocked.
    - Closed (tested): `CheckChallenge.lean` doesn't import the solution, loads the challenge with `loadExts := false`, and runs no initializers.
-   - Closed (planned): `build.sh` builds only `Toy.Categorize`, so the shipped library never builds agent files.
+   - Closed (implemented): `build.sh` builds only `Toy.Categorize`, so the shipped library never builds agent files.
    - Outside the audit: the user's own interactive builds run agent code unsandboxed. That's a risk to the user's machine, not to the verdict.
 7. **Axioms.** A proof can assume anything through `sorry`, a made-up axiom, or `native_decide` (which in 4.36 creates a new axiom for each proof, such as `t._native.native_decide.ax_1_1`; checked).
    - Closed (tested for `sorry` and a made-up axiom): the comparator's allow-list permits only `propext`, `Classical.choice` and `Quot.sound`. `native_decide`'s axiom is outside the list, so it would be rejected too (not run through the comparator).
 8. **Kernel bugs.** A proof accepted only because of a bug in Lean's kernel.
    - Trusted, with independent checks: `--paranoid` re-checks with `leanchecker-paranoid`, `lean4lean`, `nanoda`, `con-leche` and `con-ron`. A false proof would have to get past all of them.
 9. **Which claims are judged.** The comparator judges only the theorems named in `comparator.json`, and `CheckChallenge.lean` checks only the statements it lists. A claim missing from either isn't checked.
-   - Closed (planned): both files are audited, and must name every claim (C1 now; C2–C4 later).
+   - Closed (implemented): both files are on the file check's list, and must name every claim (C1 now; C2–C4 later). `Challenge.lean` says so in its header.
 10. **Logic to compiled program.** The kernel checks definitions, not machine code.
     - Closed (tested): check 3 (export name) and check 4 (no `@[implemented_by]` or `@[extern]`), in `CheckChallenge.lean`.
     - Trusted: Lean's compiler (Lean to C) and the C compiler. The largest unverified piece.
@@ -184,7 +184,7 @@ Prior work exists in several fields.
 
 ## Plan: moving the toy to the comparator (toy step 3 in handoff section 7b)
 
-Status (Nov 28): the user agreed to the move. A tested prototype is in `experiments/ffi-toy/comparator-prototype/` (its README lists the files, the 20 attacks and the known limits). Nothing in the toy itself is changed yet. Start from the prototype.
+Status (Nov 28): **done**, steps 1–5, in the same session the user agreed to it. The prototype it started from was removed (it's in git history). Decisions taken along the way: `Toy/Proof.lean` merged into `Solution.lean` (the only agent-written file); `SPEC.md` and `lean/Toy.lean` added to the audited files; `audit.sh` and `attacks.sh` take `--paranoid` (off by default, so the attack suite is fast; use it for a real audit); code attacks are applied *before* the audit is recorded (the code is frozen but not read, so the file check can't help), the rest after. Step 6 (CI) is still open. The record below is the plan as written.
 
 1. **Layout**, in `experiments/ffi-toy/lean/`:
    - Keep `Toy/Spec.lean` (human-audited) and `Toy/Categorize.lean` (the code; frozen, not read for correctness).

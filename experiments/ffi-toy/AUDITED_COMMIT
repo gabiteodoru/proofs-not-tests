@@ -1,0 +1,6 @@
+none-yet
+
+The first line is the commit whose audited files (the list at the top of
+audit.sh) a human read and approved. audit.sh fails if any of them differ
+from that commit. Only the user updates this file, after reading the changed
+files; that update is the (re-)audit.
