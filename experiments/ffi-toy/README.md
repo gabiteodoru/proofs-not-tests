@@ -8,7 +8,7 @@
 - `expenses.py`: the all-Python original, a small expense-report CLI. It reads `sample.csv` and prints totals per category.
 - The Lean project, `lean/`, split by who writes each file and who reads it (why: `notes/audit-integrity.md`):
   - **Human-audited** (read by a person):
-    - `Toy/Spec.lean`: `SPEC.md`'s definitions and claims C1–C4 in Lean. Draft (Nov 27), not yet read line by line by the user.
+    - `Toy/Spec.lean`: `SPEC.md`'s definitions and claims C1–C4 in Lean. Statements only: no proofs, no checks. Draft (Nov 27), not yet read line by line by the user.
     - `Challenge.lean`: the theorems to prove, each a claim from `Spec.lean` about `categorizeFFI`, with `sorry` as the proof. Only C1 so far; C2–C4 join when the implementation meets `SPEC.md`.
     - `comparator.json`: which theorems the comparator judges, and the permitted axioms (Lean's standard three).
     - `lakefile.toml`: three libraries: `Toy` (spec and implementation), `Challenge` and `Solution`.
@@ -16,6 +16,8 @@
     - `Toy/Categorize.lean`: the implementation. `categorize` rewritten in Lean, and `categorizeFFI`, the C-callable export, which is `categorize` itself with an `Array` in place of a `List`.
   - **Written by the agent, not read:**
     - `Solution.lean`: the proofs. The only agent-written file.
+  - **Optional, not audited:**
+    - `Toy/SpecExamples.lean`: worked examples of `Spec.lean`'s definitions (`#guard`s), to help a reader understand them. Not part of any verdict; nothing imports it and `audit.sh` ignores it. Run with `lake env lean Toy/SpecExamples.lean` from `lean/`.
 - `CheckChallenge.lean`: **human-audited.** The checks `lake comparator` doesn't do. It loads the compiled challenge as data and checks:
   - each theorem in `Challenge.lean` states exactly the intended term, built from literal names (so the implementation, which the challenge imports, can't change the statement through a macro or name shadowing);
   - `Categorize.lean` declares no syntax (macros, notation, parsers, elaborators);
@@ -69,6 +71,7 @@ Three parts, all on one commit. `audit.sh` refuses to run on uncommitted changes
 3. **The wiring: does Python really run the proven implementation?** Not proven, only trusted, so read:
    - `build.sh`: it must compile `lean/.lake/build/ir/Toy/Categorize.c` (the C that Lean generates from `Categorize.lean`) into `build/libtoy.so`, the library Python loads. It builds only `Toy.Categorize`, so no agent-written file is built outside the sandbox.
    - `c/toy_shim.c` and `expenses_lean.py`: they must pass arguments and results across without changing them. `difftest.py` tests this but doesn't prove it.
+   - `expenses_lean.py` also enforces the type rules Lean can't see (`SPEC.md`, "Boundary"): read those checks too.
 
 ## Results
 

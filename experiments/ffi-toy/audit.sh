@@ -40,6 +40,7 @@ AUDITED_FILES=(
   CheckChallenge.lean
   build.sh
   audit.sh
+  expenses_lean.py        # the Python glue: its type checks are read (SPEC.md, "Boundary")
 )
 
 # 1. Committed files only.

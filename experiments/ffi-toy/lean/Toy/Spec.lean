@@ -6,6 +6,10 @@ A line-by-line translation of `../../SPEC.md` ("Definitions", "Behaviour",
 translates. This file imports nothing from the implementation or the proofs, so it
 depends only on Lean's core library.
 
+Statements only: definitions and claims, no proofs and no checks. Worked
+examples of the definitions, for comprehension only, are in `SpecExamples.lean`
+(not audited).
+
 DRAFT, Nov 27, 2026: written for the user's audit. Connected to the implementation by
 `../Challenge.lean`, which states C1 about `categorizeFFI` (C2–C4 not yet).
 -/
@@ -18,9 +22,12 @@ namespace Toy.Spec
 -- sequence as a list. A `Char` is a Unicode code point other than a
 -- surrogate; `c.toNat` is its code point. `=` on strings is exact.
 
-/-- Substring: `t` occurs in `s` as a contiguous block. -/
-def IsSubstring (t s : String) : Prop :=
-  ∃ pre post : List Char, s.toList = pre ++ t.toList ++ post
+/-- Substring: `t` occurs in `s` as a contiguous block. Lean's core library
+defines `List.IsInfix l₁ l₂` as `∃ s t, s ++ l₁ ++ t = l₂`: some list before
+`l₁` and some list after it together make up `l₂`. (`abbrev` lets Lean use the
+library's test for `IsInfix` when `guess` runs.) -/
+abbrev IsSubstring (t s : String) : Prop :=
+  List.IsInfix t.toList s.toList
 
 /-- Printable ASCII character: code point from 0x20 to 0x7e inclusive. -/
 def IsPrintableAsciiChar (c : Char) : Prop :=
@@ -51,7 +58,8 @@ def trim (s : String) : String :=
 def normalize (s : String) : String :=
   lower (trim s)
 
-/-- Canonical: `Normalize(s) = s`. The empty string is canonical. -/
+/-- Canonical: `Normalize(s) = s`. The empty string is canonical (V3 excludes
+it separately). -/
 def IsCanonical (s : String) : Prop :=
   normalize s = s
 
@@ -59,12 +67,6 @@ def IsCanonical (s : String) : Prop :=
 def merchantRules : List (String × String) :=
   [("cafe", "food"), ("restaurant", "food"), ("airline", "travel"),
    ("taxi", "travel"), ("hotel", "travel"), ("staples", "office")]
-
--- Lets `guess` test `IsSubstring` while running. Not part of the spec's
--- meaning: Lean checks that this test agrees with `IsSubstring` exactly.
-instance (t s : String) : Decidable (IsSubstring t s) :=
-  decidable_of_iff (t.toList <:+: s.toList)
-    ⟨fun ⟨pre, post, h⟩ => ⟨pre, post, h.symm⟩, fun ⟨pre, post, h⟩ => ⟨pre, post, h.symm⟩⟩
 
 /-- Guess(m): the category of the first rule whose keyword is a substring of
 `Lower(m)`, or `"other"` if there is none. -/
@@ -121,26 +123,40 @@ def C4 (f : CategorizeShape) : Prop :=
       (guess merchant ∈ allowed → f merchant declared allowed = .ok (guess merchant)) ∧
       (guess merchant ∉ allowed → IsReject (f merchant declared allowed))
 
-/-! ## Sanity checks of the definitions
+/-! ## Non-vacuity (SPEC.md, "Non-vacuity")
 
-Each `#guard` evaluates its expression when the file is built, and fails the
-build if it is false. They are examples, not proofs: they help a reader check
-that the definitions mean what SPEC.md says. -/
+A claim of the form "for every input with property P, …" says nothing if no
+input has property P. Each statement below says that some input has the
+property that one case of a claim assumes, so that case is not vacuously true.
+They are about the spec alone, not about any function. C1 needs none: its only
+assumption is about the function's output. -/
 
-#guard lower "Blue CAFE 9!" = "blue cafe 9!"
-#guard lower "É" = "É"                       -- only A–Z change
-#guard trim "  food  " = "food"
-#guard trim " a b " = "a b"                  -- inner spaces stay
-#guard trim "\tfood" = "\tfood"              -- only spaces are trimmed
-#guard trim "   " = ""
-#guard normalize "  FOOD " = "food"
-#guard guess "Blue Cafe" = "food"
-#guard guess "Airline Cafe" = "food"         -- rule order decides, not position in the name:
-                                             -- cafe (rule 1) beats airline (rule 3)
-#guard guess "Bookshop" = "other"
-#guard guess "" = "other"
-#guard decide (IsSubstring "" "abc")
-#guard decide (IsSubstring "abc" "abc")
-#guard !decide (IsSubstring "ac" "abc")      -- contiguous only
+/-- C2 is not vacuous: some input is invalid. -/
+def C2_reachable : Prop :=
+  ∃ merchant declared allowed, ¬ Valid merchant declared allowed
+
+/-- C3's accept case is not vacuous. -/
+def C3_accept_reachable : Prop :=
+  ∃ merchant d allowed,
+    Valid merchant (some d) allowed ∧ normalize d ≠ "" ∧ normalize d ∈ allowed
+
+/-- C3's reject case is not vacuous. -/
+def C3_reject_reachable : Prop :=
+  ∃ merchant d allowed,
+    Valid merchant (some d) allowed ∧ normalize d ≠ "" ∧ normalize d ∉ allowed
+
+/-- C4's accept case is not vacuous. -/
+def C4_accept_reachable : Prop :=
+  ∃ merchant declared allowed,
+    Valid merchant declared allowed ∧
+    (declared = none ∨ ∃ d, declared = some d ∧ normalize d = "") ∧
+    guess merchant ∈ allowed
+
+/-- C4's reject case is not vacuous. -/
+def C4_reject_reachable : Prop :=
+  ∃ merchant declared allowed,
+    Valid merchant declared allowed ∧
+    (declared = none ∨ ∃ d, declared = some d ∧ normalize d = "") ∧
+    guess merchant ∉ allowed
 
 end Toy.Spec

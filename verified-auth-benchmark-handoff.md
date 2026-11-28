@@ -197,7 +197,12 @@ Discussed with the user Nov 26. The claim isn't that proofs remove the need for 
 - Build the differential test harness (Python and Lean) and run the proof-of-concept token through both versions.
 - Draft the write-up as you go, starting with the spec-vs-proof comparison.
 
-## 7b. Session state for the next Claude Code session (updated Nov 28, sixth session)
+## 7b. Session state for the next Claude Code session (updated Nov 28, seventh session)
+
+**Rules learned the hard way (Nov 28):**
+- Human-audited files contain statements only: definitions and claims, no proofs and no checks. Proofs go in `Solution.lean`. If a task seems to need a proof in an audited file, raise it with the user before writing one.
+- Run Lean experiments under limits: `timeout` always, and for single-file runs `prlimit --as=8000000000` (4 GB is too low for Lean to start; `lake build` can't run under it). Details: `notes/lean-learnings.md`, Nov 28.
+- When the user asks a question, answer it; don't run code to check a detail unless asked. Say what's unverified instead.
 
 **Read first:** `CLAUDE.md` at the repo root gives the reading order. The spec decisions D1–D6 in `notes/cve-2026-48523.md` were agreed with the user after a long discussion. Don't reopen them unless the user asks.
 
@@ -223,21 +228,22 @@ Discussed with the user Nov 26. The claim isn't that proofs remove the need for 
   - `Challenge.lean` silences the expected `sorry` warning per theorem with `set_option warn.sorry false in` (the comparator still sees `sorryAx`; `notes/lean-learnings.md`, Nov 28).
   - Terminology agreed with the user: "code" is any code, "implementation" the definitions that compute and run (see "Terminology" below). Applied across the toy and the notes; the `code-*` attacks were renamed `implementation-*`.
   - `AUDITED_COMMIT` holds `ab614fe`, a provisional entry the user approved. Several audited files have changed since (the `warn.sorry` line, wording only), so `audit.sh` fails at the file check until a new audited commit is recorded. The user chose to leave it until the real audit (step 7 below). Only the user updates it.
-- **Next: the to-do list for the toy, in order** (agreed with the user, Nov 28; the next session starts at step 2):
+- **Next: the to-do list for the toy, in order** (agreed with the user, Nov 28; step 2 done in the seventh session; the next session starts at step 3):
   1. Housekeeping: done (Nov 28): the sixth session's changes are committed and pushed.
-  2. **Spec sanity check.** Add checks to `Spec.lean` that the hypotheses of the claims can be satisfied, so that no claim is vacuously true. C3 and C4 only say something about inputs that satisfy `Valid`, so `Valid` must be satisfiable in each of their cases; C2 only says something about inputs that don't, so `¬ Valid` must be satisfiable too. Suggested witnesses, each to be checked:
-     - C3, accept: merchant `"Blue Cafe"`, declared `some " Food "`, allowed `#["food"]`;
-     - C3, reject: merchant `"Blue Cafe"`, declared `some "travel"`, allowed `#["food"]`;
-     - C4, accept: merchant `"Blue Cafe"`, declared `none`, allowed `#["food"]`;
-     - C4, reject: merchant `"Bookshop"`, declared `some "  "`, allowed `#["food"]` (`guess` gives `"other"`);
-     - C2: a merchant with a non-ASCII character, such as `"Café"`.
-     - **Warning, from the sixth session:** a scratch file proving facts like `IsPrintableAscii "Blue Cafe"` with `decide` (after adding `Decidable` instances by `unfold …; infer_instance`) ran for over two minutes without finishing, then froze WSL. Which line caused it is unknown (probably the kernel evaluating `String` functions on literals). Before trying again: test one fact at a time, under a time and memory limit (e.g. `timeout 60 prlimit --as=4000000000 lake env lean …`). Options: `#guard` (evaluated by the compiler, like the file's existing sanity checks: checks examples, not proofs), or proofs by `simp`/explicit witnesses. Don't use `native_decide`: it adds an axiom the comparator rejects (channel 7). Note also that `Valid`'s clause `∀ d, declared = some d → …` has no `Decidable` instance as written.
-     - Write the checks so a reader can audit them: each states, in a comment, which claim it keeps from being vacuous.
-  3. **Spec audit.** The user reads `SPEC.md` and `Spec.lean` line by line, with Claude explaining. Any changes go in now. The user wants a clean session for this walkthrough.
+  2. Done (Nov 28, seventh session). **Spec sanity check: statements only** (redefined Nov 28, seventh session; the first attempt tried to prove the facts inside `Spec.lean` and froze WSL, see `notes/lean-learnings.md`, Nov 28). Add to `Spec.lean` five non-vacuity *statements*, each a `def … : Prop := ∃ …`, with no proofs. Each says that one case of a claim can be reached, so the claim can't be vacuously true. One witness proves each, completely. A comment on each names the claim it protects:
+     - C3, accept case: some valid input with `normalize d ≠ ""` and `normalize d ∈ allowed`;
+     - C3, reject case: the same with `normalize d ∉ allowed`;
+     - C4, accept case: some valid input with `declared` absent or blank and `guess merchant ∈ allowed`;
+     - C4, reject case: the same with `guess merchant ∉ allowed`;
+     - C2: some input with `¬ Valid`.
+     - The proofs go in `Solution.lean` with C1–C4 (steps 6 and 8), written by the agent. Possible witnesses for the agent: `"Blue Cafe"`/`some " Food "`/`#["food"]`; `"Blue Cafe"`/`some "travel"`/`#["food"]`; `"Blue Cafe"`/`none`/`#["food"]`; `"Bookshop"`/`some "  "`/`#["food"]`; merchant `"Café"`. Don't prove them with `decide` on string literals without limits; `native_decide` is out (its axiom is rejected, channel 7).
+     - Done (seventh session): the five statements are in `Spec.lean` (`C2_reachable`, `C3_accept_reachable`, `C3_reject_reachable`, `C4_accept_reachable`, `C4_reject_reachable`) and in plain English in `SPEC.md`, "Non-vacuity". Also: `IsSubstring` now uses the core library's `List.IsInfix`, so the hand-written proof that was in `Spec.lean` is gone; the `#guard` examples moved to `Toy/SpecExamples.lean` (not audited, optional comprehension aids). `Spec.lean` holds statements only. Also added, from another Claude's review: "(V3 excludes it separately)" after "the empty string is canonical", and in `SPEC.md` "Boundary" who checks the Python type rules. Decided by the user (Nov 28): a human reads the glue's type checks as part of the audit, so `expenses_lean.py` is now in `audit.sh`'s `AUDITED_FILES` (the README's "How to audit" part 3 already said to read it).
+     - Open, for the user: `c/toy_shim.c` is also read in the audit (README, "How to audit" part 3) but is not in `AUDITED_FILES`, so the file check doesn't pin it. Probably add it, for the same reason as `expenses_lean.py`.
+  3. **Spec audit.** The user reads `SPEC.md` and `Spec.lean` line by line, with Claude explaining. Both now hold statements only; `Toy/SpecExamples.lean` (worked examples, optional) can help explain the definitions. Any changes go in now. The user wants a clean session for this walkthrough.
   4. **Implementation change.** Change both implementations to meet `SPEC.md`: the Lean implementation (`Toy/Categorize.lean`), the Python implementation (`categorize` in `expenses.py`), and the Python glue (`expenses_lean.py`) if needed (e.g. `TypeError` for wrong types is probably raised in Python, before the Lean implementation is called). Once frozen, nobody reads the implementation for correctness; the proofs cover that.
   5. **Differential test.** Extend `difftest.py` to generate invalid inputs too, so the two implementations are compared on rejections as well. Run it.
-  6. **Complete the challenge.** Add C2–C4 to `Challenge.lean`, to `comparator.json` (`theorem_names`) and to `CheckChallenge.lean` (`expected`).
-  7. **Challenge audit.** The user reads the remaining audited files (`Challenge.lean`, `CheckChallenge.lean`, `comparator.json`, `lakefile.toml`, `audit.sh`) and records that commit in `AUDITED_COMMIT`, replacing the provisional entry. From then on the spec, the challenge and the implementation are frozen; changing any of them means a new audit.
+  6. **Complete the challenge.** Add C2–C4 and the five non-vacuity statements (step 2) to `Challenge.lean`, to `comparator.json` (`theorem_names`) and to `CheckChallenge.lean` (`expected`).
+  7. **Challenge audit.** The user reads the remaining audited files (`Challenge.lean`, `CheckChallenge.lean`, `comparator.json`, `lakefile.toml`, `audit.sh`, and the type checks in `expenses_lean.py`) and records that commit in `AUDITED_COMMIT`, replacing the provisional entry. From then on the spec, the challenge and the implementation are frozen; changing any of them means a new audit.
   8. **Proofs.** An agent proves C1–C4 in a separate, logged session, editing only `Solution.lean`. Done when `./audit.sh --paranoid` passes. Watch the log for attempts to weaken the spec.
   9. **Toy README:** record the results.
   - Open, not tied to this order: run `audit.sh` in CI (needs `bwrap` on GitHub's runners; untested); whether to shrink the 230 MB Lean runtime.

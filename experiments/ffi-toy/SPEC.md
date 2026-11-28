@@ -17,7 +17,7 @@ Everything below the Context section is normative, and each term is defined befo
 - **Lower(s):** `s` with each character from `A` to `Z` (`0x41`–`0x5a`) replaced by the corresponding character from `a` to `z` (`0x61`–`0x7a`), that is, its code point plus `0x20`. Every other character is unchanged.
 - **Trim(s):** `s` with its longest prefix consisting only of spaces (`0x20`) removed, and then its longest suffix consisting only of spaces removed. No other character is removed.
 - **Normalize(s):** `Lower(Trim(s))`.
-- **Canonical string:** a string `s` with `Normalize(s) = s`. Equivalently: it contains none of `A`–`Z`, and it neither starts nor ends with a space. The empty string is canonical.
+- **Canonical string:** a string `s` with `Normalize(s) = s`. Equivalently: it contains none of `A`–`Z`, and it neither starts nor ends with a space. The empty string is canonical (V3 excludes it separately).
   - Fact: `Normalize(s)` is canonical for every string `s`; that is, `Normalize(Normalize(s)) = Normalize(s)` (`Normalize` is idempotent). Reason: `Trim(s)` neither starts nor ends with a space; `Lower` changes only `A`–`Z`, so it leaves the spaces where they are, and its output contains none of `A`–`Z`. By the equivalent description, `Lower(Trim(s))` is canonical.
 - **Merchant rules:** this fixed sequence of six pairs (keyword, category), in this order:
   1. (`cafe`, `food`)
@@ -73,6 +73,13 @@ Stated, as now, for any function with the shape of `categorizeFFI`, and then app
 
 C2, C3 and C4 together determine whether the outcome is accept or reject for every argument, and the accepted string when it is accept: this is a full functional spec, apart from the error messages. C1 follows from C2, C3 and C4 (C2 covers invalid arguments, C3 and C4 valid ones). It is stated separately because it is the security property, and it should stay readable on its own.
 
+**Non-vacuity.** A claim of the form "for every input with property P, …" says nothing if no input has property P. So the following are also to be proved in Lean, about the spec alone. Each says that one case of a claim can be reached:
+- for C2: some arguments are invalid;
+- for C3, accept and reject: some valid arguments have `declared` a string with `Normalize(declared)` non-empty, and in `allowed`; and some such arguments have it not in `allowed`;
+- for C4, accept and reject: some valid arguments have `declared` absent or `Normalize(declared)` empty, and `Guess(merchant)` in `allowed`; and some such arguments have it not in `allowed`.
+
+C1 needs no such statement: its only assumption is about the outcome. Each statement is proved by one example (a "witness"), which proves it completely.
+
 Note for the write-up: for a function this small, a full functional spec is close to a second implementation. Its value is that it is written independently, in terms a reader can check, and that the proof ties the implementation to it. For PyJWT the spec is about API properties (S1–S4), not the full behaviour; that's where spec and implementation differ most.
 
 ## Boundary (Python only; trusted and tested, not proven)
@@ -81,6 +88,8 @@ The Python glue in `expenses_lean.py` must enforce the parts of V1–V3 that Lea
 
 - `merchant` is a `str`; `declared` is a `str` or `None`; `allowed` is a `list` (T2) whose elements are all `str`. In particular, a `str` passed as `allowed` is rejected, not searched for substrings.
 - A string containing a surrogate character (e.g. `"\ud800"`) can't be converted to a Lean string, so the glue must reject it itself. A surrogate is not printable ASCII, so the outcome must be the same as for any other non-printable character (same kind, same message; T5).
+
+Who checks this, and how: no proof covers it. A human reads the glue's checks as part of the audit (decided Nov 28), so `expenses_lean.py` is in `audit.sh`'s list of audited files; and `difftest.py` tests them, with wrong-type and surrogate inputs (next paragraph).
 
 Both implementations must have the same outcome on every argument, valid or not. `difftest.py` must generate invalid inputs too: a `str` or `tuple` allow-list, control characters, non-ASCII, surrogates, empty and non-canonical entries.
 

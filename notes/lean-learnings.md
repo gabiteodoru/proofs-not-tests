@@ -88,3 +88,14 @@ It checks kernel declarations only. `@[export]`, `@[implemented_by]` and `@[exte
 - **The `sorry` is still recorded.** `#print axioms` on the silenced theorem printed `[sorryAx]`. So the option can't hide a `sorry` from the comparator's axiom check; it only removes the message.
 - Used in the toy's `Challenge.lean`, where the `sorry` proofs are expected.
 - Repeat: put `theorem a : 1 = 1 := sorry`, then `set_option warn.sorry false in` and `theorem b : 2 = 2 := sorry`, then `theorem c : 3 = 3 := sorry` and `#print axioms b` in a file, and run `lean` on it.
+
+## Nov 28, 2026: limits for experiments, and `List.IsInfix`
+
+- **Proving facts about string literals with `decide` can blow up.** In the sixth session, a scratch file proving five facts like `IsPrintableAscii "Blue Cafe"` by `decide` ran for over two minutes, then froze WSL. Cause not confirmed (probably the kernel evaluating `String.toList` on literals). Don't repeat it without the limits below.
+- **Memory limits: `prlimit --as` works for one `lean` run, not for `lake build`.**
+  - `timeout 60 prlimit --as=4000000000 lake env lean F.lean` fails at once with "failed to create thread: Resource temporarily unavailable", even with `-j1`. Lean reserves more than 4 GB of address space up front.
+  - `--as=8000000000` works (machine: 11 GB of RAM under WSL).
+  - `lake build` under `--as=8000000000` aborts with the same thread error: the cap applies to each process's address space, and `lake` starts many threads. Use `timeout` alone for builds, and the memory limit for single-file experiments.
+- **`List.IsInfix l₁ l₂` is defined as `∃ s t, s ++ l₁ ++ t = l₂`, and has a `Decidable` instance** (`List.instDecidableIsInfixOfDecidableEq`, needs `DecidableEq` on the elements). Notation: `l₁ <:+: l₂`.
+  - Used in the toy's `Spec.lean` to define `IsSubstring` without a hand-written proof. It's declared with `abbrev` so that `decide (IsSubstring t s)` finds the library's instance; whether a plain `def` would also work wasn't tested.
+  - Repeat: `#print List.IsInfix` and `#synth Decidable (['a'] <:+: ['b','a'])` in a file, run with `lean`.
