@@ -9,6 +9,8 @@ A public portfolio repo: a Lean proof that the fix for PyJWT CVE-2026-48523 (an 
 3. Only when the task touches it:
    - `experiments/ffi-toy/README.md`: calling compiled Lean from Python (build steps, ownership rules, packaging limits).
    - `notes/python-lean-contract-gaps.md`: Python vs Lean primitives with different contracts.
+   - `notes/audit-integrity.md`: whether the proven claim is the one a human audited (shadowing, the comparator, binding the audited spec to the judged one, team-level spec ownership).
+   - `notes/lean-learnings.md`: Lean facts found by experiment, with commands to repeat them.
    - `references/`: third-party documents kept unmodified (RFC 8725, the JWT best-practice standard), with sources and licenses in its README.
 
 ## Usually skip

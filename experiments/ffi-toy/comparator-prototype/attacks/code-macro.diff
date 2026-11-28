@@ -1,0 +1,3 @@
+50a51,52
+> 
+> macro_rules | `(Toy.Spec.C1 $f) => `(True)

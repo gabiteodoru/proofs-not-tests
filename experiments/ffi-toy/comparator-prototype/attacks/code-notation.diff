@@ -1,0 +1,7 @@
+0a1
+> import Lean
+50a52,55
+> 
+> notation "ALWAYS" => True
+> open Lean Elab Term in
+> elab "myTerm" : term => return mkConst ``True

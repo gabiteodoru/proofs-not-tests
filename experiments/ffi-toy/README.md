@@ -94,10 +94,14 @@ Three parts, all on one commit. `audit.sh` refuses to run on uncommitted changes
 The proof covers `categorizeFFI` and nothing outside Lean. Trusted, not proven:
 - The C shim (`c/toy_shim.c`, about 60 lines) and the Python glue (`expenses_lean.py`, about 40 lines): that they pass arguments and results across without changing them. `difftest.py` tests this but doesn't prove it.
 - `build.sh`: that the library Python loads is compiled from `Categorize.lean` and nothing else.
+  - Check 3 doesn't cover this. It confirms that `categorizeFFI` is exported as `toy_categorize`, not that no other function is. Lean accepts two functions with the same `@[export]` name in different modules, and the audit build doesn't link, so it never sees the clash. Untested: whether linking both into one library fails with a duplicate symbol. Details: `notes/lean-learnings.md`, Nov 27.
 - That the Python program uses `categorize` the way the theorem assumes. The theorem is about the Lean function, not about the program around it.
 - Lean's compiler, runtime and kernel, and its three standard axioms.
 - That the claim in `Audit.lean` says what we want, and that its checks and `audit.sh` do what they say. That is the human audit.
+
 ## Not done yet
+
+- Moving the audit to `lake comparator`, agreed Nov 28. The current checks have known holes (see `notes/audit-integrity.md`). A tested prototype is in `comparator-prototype/`.
 
 - Threading: the runtime is initialized from Python's main thread, and calls from other threads haven't been tried (Lean may require `lean_initialize_thread` for them).
 - macOS and Windows builds.

@@ -1,0 +1,5 @@
+0a1
+> import Toy.Spec
+50a52,53
+> 
+> def Toy.Toy.Spec.C1 (_ : Toy.Spec.CategorizeShape) : Prop := True
