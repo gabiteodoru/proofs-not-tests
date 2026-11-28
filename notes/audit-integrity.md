@@ -12,13 +12,13 @@ Design issues found on Nov 27–28, 2026, while testing the toy's audit. The Lea
   - *Scale:* the method doesn't need a human to keep up with the agent's edits, which is de Moura's thesis.
 - **Separate threats, not handled by the comparator:**
   - changes to the human-audited files (Issue 3);
-  - code imported by the challenge subverting it (Issue 5);
+  - the implementation, which the challenge imports, subverting it (Issue 5);
   - the compiled program differing from the definitions (Issue 4).
 
 ## Roles
 
 - **The human:** writes or approves the spec (`SPEC.md`, `Spec.lean`) and audits it. This is the only part a person must read.
-- **The code:** `Categorize.lean`, and later the PyJWT model. Written by us, fixed before proving starts, and not read for correctness (the proofs cover that).
+- **The implementation:** `Categorize.lean`, and later the PyJWT model. Written by us, fixed before proving starts, and not read for correctness (the proofs cover that).
 - **The proving agent:** an LLM session (for example a separate Claude Code session) given the spec and the code, told to prove the claims, and logged for the write-up. It writes the solution (the proof files). It's untrusted: it can make mistakes, or weaken the claim to finish.
 - **Lean's kernel:** a checker, not a writer. It accepts or rejects proofs. It's trusted; `--paranoid` re-checks its verdict with five independent checkers.
 - **The comparator (`lake comparator`):** the judge. It confirms that the solution proves the human's statements, using only the permitted axioms, and that the kernel accepts it.
@@ -45,12 +45,12 @@ Design issues found on Nov 27–28, 2026, while testing the toy's audit. The Lea
 - Tested: changing `C1` to `True` in the shared `Toy/Spec.lean` and proving it with `trivial` was accepted.
 - **Scenarios**, most likely first:
   1. **The agent weakens the spec while trying to finish.** It needs a shell and write access to edit the solution and run builds, so nothing stops it editing the spec too. This needs no malice, only the path of least resistance. Handoff section 7b already lists spec weakening as a risk.
-  2. **The change is lost in a big diff.** A one-line edit to the spec, the code or the lakefile, among many proof changes. The code and the lakefile are part of the challenge but not reviewed by design, so edits there are the easiest to miss.
+  2. **The change is lost in a big diff.** A one-line edit to the spec, the implementation or the lakefile, among many proof changes. The implementation and the lakefile are part of the challenge but not reviewed by design, so edits there are the easiest to miss.
   3. **Later commits.** In a long-lived project, or in the follow-up experiment "does a proof gate survive ongoing changes?" (handoff section 6b), people and agents keep committing after the audit. A green check must mean "the spec is still the audited version", not "whatever spec is in this commit is proven".
-  4. **Build outputs.** The agent's builds write `.lake/`, which holds compiled copies of the spec and the code. Read-only sources don't protect these.
+  4. **Build outputs.** The agent's builds write `.lake/`, which holds compiled copies of the spec and the implementation. Read-only sources don't protect these.
 - **Fixes**, to use together:
   - **Trusted challenge export** (tested). Build the challenge from our own copy at the audited commit, export it with `leanexport`, and judge with `lake comparator --challenge-from-export=<file>`. With it, the spec edit was rejected.
-  - **File check** (planned, in `audit.sh`). Before judging, require the audited files (spec, code in the challenge, lakefile, `comparator.json`) to be byte-identical to the audited commit: `git diff --exit-code <audited-commit> -- <files>`, or stored hashes. A change fails the gate and means a re-audit. Its error names the changed file, which is clearer than a comparator mismatch.
+  - **File check** (planned, in `audit.sh`). Before judging, require the audited files (spec, the implementation the challenge imports, lakefile, `comparator.json`) to be byte-identical to the audited commit: `git diff --exit-code <audited-commit> -- <files>`, or stored hashes. A change fails the gate and means a re-audit. Its error names the changed file, which is clearer than a comparator mismatch.
   - **Sandbox the agent** (planned; a convenience, not part of the trusted list). Make the audited files read-only for the agent, through file ownership by another user or a read-only mount. Then the agent learns immediately that it can't weaken the spec, rather than after a wasted session.
     - Claude Code's own permission rules (for example, denying `Edit` on a path) are weaker than OS permissions: the agent can still write the file through a shell command. For enforcement, use the OS.
   - In the plan below, the file check plus a clean clone already make the challenge the audited one, so the trusted export becomes optional.
@@ -63,22 +63,22 @@ Design issues found on Nov 27–28, 2026, while testing the toy's audit. The Lea
 ## Issue 4: what the comparator doesn't check
 
 - It checks kernel declarations only. `@[export]`, `@[implemented_by]` and `@[extern]` aren't part of them.
-- So the toy's checks 3 (`categorizeFFI` is exported as `toy_categorize`) and 4 (no compiled code swapped in) are still needed, and so is "the library Python loads is built from the challenge's code".
-- These checks get simpler: they run on the trusted challenge alone, which imports nothing the agent wrote, so shadowing can't reach them. Tested (Nov 28): both work on the challenge loaded as data, in `CheckChallenge.lean`, and catch the toy's two existing code sabotages, which the comparator accepts.
+- So the toy's checks 3 (`categorizeFFI` is exported as `toy_categorize`) and 4 (no compiled code swapped in) are still needed, and so is "the library Python loads is built from the challenge's implementation".
+- These checks get simpler: they run on the trusted challenge alone, which imports nothing the agent wrote, so shadowing can't reach them. Tested (Nov 28): both work on the challenge loaded as data, in `CheckChallenge.lean`, and catch the toy's two existing implementation sabotages, which the comparator accepts.
 - Check 3 confirms that `categorizeFFI` carries the export name, not that no other function does. Lean accepts two functions with the same `@[export]` name in different modules (see the toy README, "What is trusted").
 
-## Issue 5: code imported by the challenge can subvert it
+## Issue 5: the implementation, which the challenge imports, can subvert it
 
-- The challenge imports the code (`Categorize.lean`) so that its statements can mention `categorizeFFI`. By design, nobody reads the code for correctness; the proofs cover that.
-- But code can change how the challenge's statement line is read. Both cases were tested (details in `notes/lean-learnings.md`, Nov 28):
-  - a `macro_rules` line in the code turned the statement into `True`;
-  - a `Toy.Toy.Spec.C1 := True` in the code shadowed the claim, because `theorem Toy.c1` reads its signature inside namespace `Toy`.
+- The challenge imports the implementation (`Categorize.lean`) so that its statements can mention `categorizeFFI`. By design, nobody reads the implementation for correctness; the proofs cover that.
+- But the implementation can change how the challenge's statement line is read. Both cases were tested (details in `notes/lean-learnings.md`, Nov 28):
+  - a `macro_rules` line in the implementation turned the statement into `True`;
+  - a `Toy.Toy.Spec.C1 := True` in the implementation shadowed the claim, because `theorem Toy.c1` reads its signature inside namespace `Toy`.
 - In both cases the comparator accepted a trivial proof. The challenge itself was subverted, and the comparator only checks that the solution matches the challenge.
-- This applies whoever writes the code: us, or an agent before the code is frozen.
-- **Fix (prototyped and tested):** `CheckChallenge.lean` loads the compiled challenge as data, with no source parsed while the code's macros are active. It then checks:
+- This applies whoever writes the implementation: us, or an agent before the implementation is frozen.
+- **Fix (prototyped and tested):** `CheckChallenge.lean` loads the compiled challenge as data, with no source parsed while the implementation's macros are active. It then checks:
   - each statement is exactly the intended term, written from literal names;
-  - the code module declares no syntax (macros, notation, parsers, elaborators).
-- So the code still needs no reading for correctness. It only has to pass a mechanical "defines no syntax" check, and the statements are checked as terms, not as text.
+  - the implementation module declares no syntax (macros, notation, parsers, elaborators).
+- So the implementation still needs no reading for correctness. It only has to pass a mechanical "defines no syntax" check, and the statements are checked as terms, not as text.
 
 ## What a reader has to check
 
@@ -89,12 +89,12 @@ For someone who clones the repo and wants to trust the result:
   - `comparator.json` (which theorems, which axioms are allowed);
   - `audit.sh`, and the checks file for checks 3 and 4.
 - **Trust without reading:** the Lean toolchain, the comparator and `bwrap`. These are shared by every Lean project and maintained by others ("evidence reused", handoff section 6).
-- **Neither read nor trust:** the proof files, and the code (beyond the mechanical syntax check; the proofs cover its correctness).
+- **Neither read nor trust:** the proof files, and the implementation (beyond the mechanical syntax check; the proofs cover its correctness).
 - The file check against the audited commit is for us, not for the reader: it protects an audit from later changes. A reader doing their own audit reads the current files directly.
 
 ## Channels: every way untrusted content could reach the verdict
 
-Why this list exists: finding attacks one at a time has the same weakness as testing (you stop when you run out of ideas). Listing the *channels* through which untrusted content (agent-written proofs, or code nobody reads) could affect the verdict is reviewable for completeness, and each channel can be closed structurally. This is our best list as of Nov 28, 2026. It isn't proven complete; review it, and add to it when something new turns up.
+Why this list exists: finding attacks one at a time has the same weakness as testing (you stop when you run out of ideas). Listing the *channels* through which untrusted content (agent-written proofs, or an implementation nobody reads) could affect the verdict is reviewable for completeness, and each channel can be closed structurally. This is our best list as of Nov 28, 2026. It isn't proven complete; review it, and add to it when something new turns up.
 
 None of the issues so far was a flaw in Lean's proof checking: every fake was a valid proof of what it stated. They were all at the edges listed here.
 
@@ -102,15 +102,15 @@ Status words: **closed (tested)** means an attack was run through the whole audi
 
 1. **Proof files into what humans read.** An audit file that imports the proofs lets them shadow names or redefine syntax (Issue 1).
    - Closed (tested): nothing humans read imports the proofs. The comparator compares compiled terms, inside a sandbox.
-2. **Code into the challenge.** The challenge imports the code, so the code can change what the challenge's statement means (Issue 5).
-   - Closed (tested): `CheckChallenge.lean` checks each statement as a term built from literal names, and that the code declares no syntax. The syntax check recognizes syntax by declaration type; that list covered every attack tried but isn't proven complete. The statement check is the main guard.
+2. **Implementation into the challenge.** The challenge imports the implementation, so the implementation can change what the challenge's statement means (Issue 5).
+   - Closed (tested): `CheckChallenge.lean` checks each statement as a term built from literal names, and that the implementation declares no syntax. The syntax check recognizes syntax by declaration type; that list covered every attack tried but isn't proven complete. The statement check is the main guard.
 3. **The spec's own meaning.** `Spec.lean` imports nothing, so its text means what Lean's core language says it means.
    - Trusted: Lean's core language and prelude, as for any language.
    - Closed (tested): the file check keeps its text, including the import lines, as audited. A mechanical "imports nothing" check would be cheap to add.
-4. **Which files are judged.** An edited spec, code or lakefile is judged against itself (Issue 3).
+4. **Which files are judged.** An edited spec, implementation or lakefile is judged against itself (Issue 3).
    - Closed (tested): the file check against the audited commit (`edit-spec` in `attacks.sh`).
    - Trusted: the record of the audited commit; only the user updates it.
-5. **Build outputs.** The agent's builds write `.lake/`, which holds compiled copies of the spec and the code.
+5. **Build outputs.** The agent's builds write `.lake/`, which holds compiled copies of the spec and the implementation.
    - Closed (implemented): every audit step after the file check runs in a clean clone. Whether Lake would actually reuse a tampered build output is untested; the clean clone avoids depending on the answer.
 6. **Agent code running during builds.** Lean runs `#eval` and macros while compiling.
    - Closed (tested): the comparator builds inside `bwrap`. Writing project files, reading the home directory and network access were blocked.
@@ -133,12 +133,12 @@ Status words: **closed (tested)** means an attack was run through the whole audi
 13. **The spec says what we mean.** No tool can check this.
     - The human audit. Planned help: a check that `Valid` is satisfiable, so that C3 and C4 can't be vacuously true (toy step 2 in handoff section 7b).
 
-How this list was used: the code-into-challenge channel (2) was found by going through the imports one by one while writing the plan, not by inventing an attack. Red-teaming is a complementary check. Ask an agent, in a logged session, to make `audit.sh` pass with a false claim; any success means a channel is missing from this list. That session would also be write-up material.
+How this list was used: the implementation-into-challenge channel (2) was found by going through the imports one by one while writing the plan, not by inventing an attack. Red-teaming is a complementary check. Ask an agent, in a logged session, to make `audit.sh` pass with a false claim; any success means a channel is missing from this list. That session would also be write-up material.
 
 ## Why interactive approval doesn't replace this
 
 The user works interactively and approves each code change, so they would see an agent editing the audited files. That helps, but:
-- **It doesn't catch Issue 1 or Issue 5.** Those attacks add ordinary-looking definitions to files the user deliberately doesn't read (proofs, code). Catching them by watching means reading and understanding every proof edit, which is auditing the proofs.
+- **It doesn't catch Issue 1 or Issue 5.** Those attacks add ordinary-looking definitions to files the user deliberately doesn't read (proofs, implementation). Catching them by watching means reading and understanding every proof edit, which is auditing the proofs.
 - **Readers can't see the approvals.** "I watched carefully" can't be checked by anyone else, which is exactly the kind of trust the write-up argues against. With the comparator and the checks, a reader runs `audit.sh` and the session process is irrelevant.
 - **It doesn't scale.** Long proving sessions have many edits, including shell commands, where a one-line change is easy to miss.
 
@@ -152,7 +152,7 @@ The user works interactively and approves each code change, so they would see an
 
 Scenario 3 turns this into a team question: which teammates may change the spec, and how changes get reviewed and approved.
 
-- **Not every change comes from a sandboxed agent.** After the audit, the spec, the code in the challenge or the lakefile can change through:
+- **Not every change comes from a sandboxed agent.** After the audit, the spec, the implementation the challenge imports or the lakefile can change through:
   - a teammate's commit, made in good faith (a "small cleanup" of a definition);
   - a refactor that renames or moves definitions the claims depend on;
   - a merge. Two branches can each change the spec harmlessly while the combination changes what it means. Neither branch's review shows the combined result.
@@ -184,20 +184,20 @@ Prior work exists in several fields.
 
 ## Plan: moving the toy to the comparator (toy step 3 in handoff section 7b)
 
-Status (Nov 28): **done**, steps 1–5, in the same session the user agreed to it. The prototype it started from was removed (it's in git history). Decisions taken along the way: `Toy/Proof.lean` merged into `Solution.lean` (the only agent-written file); `SPEC.md` and `lean/Toy.lean` added to the audited files; `audit.sh` and `attacks.sh` take `--paranoid` (off by default, so the attack suite is fast; use it for a real audit); code attacks are applied *before* the audit is recorded (the code is frozen but not read, so the file check can't help), the rest after. Step 6 (CI) is still open. The record below is the plan as written.
+Status (Nov 28): **done**, steps 1–5, in the same session the user agreed to it. The prototype it started from was removed (it's in git history). Decisions taken along the way: `Toy/Proof.lean` merged into `Solution.lean` (the only agent-written file); `SPEC.md` and `lean/Toy.lean` added to the audited files; `audit.sh` and `attacks.sh` take `--paranoid` (off by default, so the attack suite is fast; use it for a real audit); implementation attacks are applied *before* the audit is recorded (the implementation is frozen but not read, so the file check can't help), the rest after. Step 6 (CI) is still open. The record below is the plan as written.
 
 1. **Layout**, in `experiments/ffi-toy/lean/`:
-   - Keep `Toy/Spec.lean` (human-audited) and `Toy/Categorize.lean` (the code; frozen, not read for correctness).
+   - Keep `Toy/Spec.lean` (human-audited) and `Toy/Categorize.lean` (the implementation; frozen, not read for correctness).
    - Add `Challenge.lean`, `Solution.lean` and `comparator.json`, and the two `[[lean_lib]]` entries in `lakefile.toml`, from the prototype.
    - Put `CheckChallenge.lean` outside every `lean_lib`: it's a script run with `lake env lean --run`, not a module. For example `experiments/ffi-toy/CheckChallenge.lean`.
    - Delete `Toy/Audit.lean`, and its import in `Toy.lean`.
    - Agent-written files: `Solution.lean` and `Toy/Proof.lean` (the prototype's solution imports `Toy.Proof`). Keeping or merging them is the user's call; either way, list the agent-written files explicitly in the README.
-   - Start with C1 only: the existing proof proves it. C2–C4 join `Challenge.lean`, `comparator.json` (`theorem_names`) and `CheckChallenge.lean` (the expected statements) when toy step 4 changes the code to meet SPEC.md.
-2. **`build.sh`: build only the code.** Today it runs `lake build`, which builds the default targets. After the move, those include the agent's files, so the agent's code (for example `#eval`) would run outside the sandbox, and the shipped library's build would depend on agent files. Change it to `lake build Toy.Categorize`; the library needs nothing else.
+   - Start with C1 only: the existing proof proves it. C2–C4 join `Challenge.lean`, `comparator.json` (`theorem_names`) and `CheckChallenge.lean` (the expected statements) when toy step 4 changes the implementation to meet SPEC.md.
+2. **`build.sh`: build only the implementation.** Today it runs `lake build`, which builds the default targets. After the move, those include the agent's files, so the agent's code (for example `#eval`) would run outside the sandbox, and the shipped library's build would depend on agent files. Change it to `lake build Toy.Categorize`; the library needs nothing else.
 3. **`audit.sh`, in order:**
    1. Refuse uncommitted changes (as today).
    2. **File check.** The audited files must be unchanged since the audited commit: `git diff --exit-code <audited-commit> HEAD -- <files>`.
-      - Audited files: `lean/Toy/Spec.lean`, `lean/Toy/Categorize.lean`, `lean/Challenge.lean`, `lean/comparator.json`, `lean/lakefile.toml`, `lean/lake-manifest.json`, `lean/lean-toolchain`, `CheckChallenge.lean`, `build.sh`, `audit.sh`. The code is on the list because it's frozen, not because it's read.
+      - Audited files: `lean/Toy/Spec.lean`, `lean/Toy/Categorize.lean`, `lean/Challenge.lean`, `lean/comparator.json`, `lean/lakefile.toml`, `lean/lake-manifest.json`, `lean/lean-toolchain`, `CheckChallenge.lean`, `build.sh`, `audit.sh`. The implementation is on the list because it's frozen, not because it's read.
       - Record the audited commit in a file, for example `experiments/ffi-toy/AUDITED_COMMIT`. Only the user updates it, after reading the changed files; that update is the re-audit.
    3. **Clean clone.** Clone HEAD into a temporary directory and run the remaining steps there, so no build output from the working tree is used. The agent's builds write `.lake/` (scenario 4 in Issue 3). Lake reuses existing build outputs whose recorded source hash matches, so a tampered `.olean` might be used without a rebuild. This is reasoning, not tested; the clean clone avoids depending on it either way.
    4. **`lake comparator --paranoid`** in the clean clone. Because the file check passed, the challenge built there is the audited one.

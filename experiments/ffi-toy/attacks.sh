@@ -10,12 +10,12 @@
 # the same path, so audit.sh runs exactly as it does here. Sabotage happens at
 # one of two times:
 #   - before the audit is recorded: the human "audited" a commit that already
-#     contained it. Used for attacks in the code, which is frozen but not read,
+#     contained it. Used for attacks in the implementation, which is frozen but not read,
 #     so the file check can't help and CheckChallenge.lean must catch them.
 #   - after the audit is recorded: an agent's later commit. Used for attacks in
 #     the solution (caught by the comparator) and edits to audited files
 #     (caught by the file check).
-# If a sabotage no longer applies (say, the code changed), it's reported as
+# If a sabotage no longer applies (say, the implementation changed), it's reported as
 # such, not skipped.
 set -uo pipefail
 
@@ -60,7 +60,7 @@ attack() {
 }
 
 sol()   { echo "cp '$A/solution-$1.lean' lean/Solution.lean"; }
-patch_code() { echo "patch -s lean/Toy/Categorize.lean < '$A/$1.diff'"; }
+patch_impl() { echo "patch -s lean/Toy/Categorize.lean < '$A/$1.diff'"; }
 
 attack baseline            pass "AUDIT PASSED" true true
 
@@ -84,13 +84,13 @@ done
 attack edit-spec fail "AUDIT FAILED: audited files changed" true \
   "patch -s lean/Toy/Spec.lean < '$A/edit-spec.diff' && $(sol edit-spec)"
 
-# Code that was bad when "audited" (it isn't read): CheckChallenge.lean rejects,
+# An implementation that was bad when "audited" (it isn't read): CheckChallenge.lean rejects,
 # although the comparator, judging the subverted challenge, accepts.
-attack code-macro         fail "FAILED statement of Toy.c1"   "$(patch_code code-macro)"    "$(sol for-code-attacks)"
-attack code-shadow        fail "FAILED statement of Toy.c1"   "$(patch_code code-shadow)"   "$(sol for-code-attacks)"
-attack code-notation      fail "FAILED code declares no syntax"   "$(patch_code code-notation)" true
-attack code-rename-export fail "FAILED export name"           "$(patch_code code-rename-export)" true
-attack code-swap-compiled fail "FAILED no swapped compiled code"  "$(patch_code code-swap-compiled)" true
+attack implementation-macro         fail "FAILED statement of Toy.c1"   "$(patch_impl implementation-macro)"    "$(sol for-implementation-attacks)"
+attack implementation-shadow        fail "FAILED statement of Toy.c1"   "$(patch_impl implementation-shadow)"   "$(sol for-implementation-attacks)"
+attack implementation-notation      fail "FAILED implementation declares no syntax"   "$(patch_impl implementation-notation)" true
+attack implementation-rename-export fail "FAILED export name"           "$(patch_impl implementation-rename-export)" true
+attack implementation-swap-compiled fail "FAILED no swapped compiled code"  "$(patch_impl implementation-swap-compiled)" true
 
 [ "$failed" = 0 ] && echo "ALL ATTACKS GAVE THE EXPECTED VERDICT" || echo "SOME ATTACKS DID NOT"
 exit $failed

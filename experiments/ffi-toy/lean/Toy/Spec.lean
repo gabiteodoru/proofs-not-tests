@@ -3,10 +3,10 @@
 
 A line-by-line translation of `../../SPEC.md` ("Definitions", "Behaviour",
 "Claims to prove in Lean"). Each definition names the part of SPEC.md it
-translates. This file imports nothing from the code or the proofs, so it
+translates. This file imports nothing from the implementation or the proofs, so it
 depends only on Lean's core library.
 
-DRAFT, Nov 27, 2026: written for the user's audit. Connected to the code by
+DRAFT, Nov 27, 2026: written for the user's audit. Connected to the implementation by
 `../Challenge.lean`, which states C1 about `categorizeFFI` (C2–C4 not yet).
 -/
 

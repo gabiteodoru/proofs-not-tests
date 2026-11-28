@@ -9,15 +9,15 @@
 - The Lean project, `lean/`, split by who writes each file and who reads it (why: `notes/audit-integrity.md`):
   - **Human-audited** (read by a person):
     - `Toy/Spec.lean`: `SPEC.md`'s definitions and claims C1–C4 in Lean. Draft (Nov 27), not yet read line by line by the user.
-    - `Challenge.lean`: the theorems to prove, each a claim from `Spec.lean` about `categorizeFFI`, with `sorry` as the proof. Only C1 so far; C2–C4 join when the code meets `SPEC.md`.
+    - `Challenge.lean`: the theorems to prove, each a claim from `Spec.lean` about `categorizeFFI`, with `sorry` as the proof. Only C1 so far; C2–C4 join when the implementation meets `SPEC.md`.
     - `comparator.json`: which theorems the comparator judges, and the permitted axioms (Lean's standard three).
-    - `lakefile.toml`: three libraries: `Toy` (spec and code), `Challenge` and `Solution`.
+    - `lakefile.toml`: three libraries: `Toy` (spec and implementation), `Challenge` and `Solution`.
   - **Frozen, not read** (fixed before proving starts; the proofs cover its correctness):
-    - `Toy/Categorize.lean`: the code. `categorize` rewritten in Lean, and `categorizeFFI`, the C-callable export, which is `categorize` itself with an `Array` in place of a `List`.
+    - `Toy/Categorize.lean`: the implementation. `categorize` rewritten in Lean, and `categorizeFFI`, the C-callable export, which is `categorize` itself with an `Array` in place of a `List`.
   - **Written by the agent, not read:**
     - `Solution.lean`: the proofs. The only agent-written file.
 - `CheckChallenge.lean`: **human-audited.** The checks `lake comparator` doesn't do. It loads the compiled challenge as data and checks:
-  - each theorem in `Challenge.lean` states exactly the intended term, built from literal names (so code imported by the challenge can't change the statement through a macro or name shadowing);
+  - each theorem in `Challenge.lean` states exactly the intended term, built from literal names (so the implementation, which the challenge imports, can't change the statement through a macro or name shadowing);
   - `Categorize.lean` declares no syntax (macros, notation, parsers, elaborators);
   - `categorizeFFI` is exported as `toy_categorize`, the symbol the C shim calls;
   - nothing in `Categorize.lean` has `@[implemented_by]` or `@[extern]`, which would make the compiled code differ from the proven definition.
@@ -26,7 +26,7 @@
 - `attacks.sh`: evidence, not part of the audit. Runs the whole `audit.sh` on 12 sabotaged copies and an unchanged one, and checks each verdict (see Results). Re-run it after changing a check or upgrading Lean. Takes `--paranoid` and passes it on to `audit.sh`. About 2 minutes, or 5 with `--paranoid` (measured Nov 28).
 - `attacks/`: the sabotages `attacks.sh` applies. `solution-*.lean` replaces `Solution.lean`; `*.diff` patches a file.
 - `c/toy_shim.c`: a plain C API over the Lean export, so Python's `ctypes` doesn't need to know about Lean objects.
-- `expenses_lean.py`: the same program, with `categorize` replaced by glue that calls the Lean code.
+- `expenses_lean.py`: the same program, with `categorize` replaced by glue that calls the Lean implementation.
 - `difftest.py`: a differential test of Python `categorize` against the Lean one, with inputs aimed at known Python/Lean differences.
 - `c/test_shim.c`: a C driver for running the shim under valgrind.
 - `build.sh`: builds everything into `build/`.
@@ -52,7 +52,7 @@ Three parts, all on one commit. `audit.sh` refuses to run on uncommitted changes
 1. **The claims: do they say what we want?** This is the core of the audit, and no script can do it.
    - Read `SPEC.md`, then `lean/Toy/Spec.lean`, its line-by-line translation.
    - Judge whether the claims are the properties you care about, and whether they are strong enough.
-2. **The proof: are the claims really proven, about the code Python calls?** Read these, which are short:
+2. **The proof: are the claims really proven, about the implementation Python calls?** Read these, which are short:
    - `lean/Challenge.lean`: each theorem states a claim from `Spec.lean` about `categorizeFFI`.
    - `CheckChallenge.lean`: its list `expected` must state the same theorems, and its four checks are commented.
    - `lean/comparator.json`: it must name every theorem in `Challenge.lean`, and permit only `propext`, `Quot.sound` and `Classical.choice`.
@@ -65,8 +65,8 @@ Three parts, all on one commit. `audit.sh` refuses to run on uncommitted changes
      4. **`lake comparator`** (built into Lean 4.36): builds `Challenge` and `Solution` inside a `bwrap` sandbox, and checks that each theorem in `comparator.json` is proven in `Solution` with exactly the statement it has in `Challenge`, using only the permitted axioms, and that the kernel accepts the proof. `--paranoid` re-checks with five independent checkers;
      5. **`CheckChallenge.lean`**: the checks the comparator doesn't do (see "What's here").
    - Not a Lean expert? Also run `./attacks.sh`, which shows each step rejecting a concrete sabotage. It shows that those sabotages are caught, not that every possible trick is. The list of channels through which a trick could get in is in `notes/audit-integrity.md`, "Channels".
-   - Not needed: `Toy/Categorize.lean` (the code) and `Solution.lean` (the proofs). The comparator checks the proofs against the audited statements, and `CheckChallenge.lean` checks the code mechanically.
-3. **The wiring: does Python really run the proven code?** Not proven, only trusted, so read:
+   - Not needed: `Toy/Categorize.lean` (the implementation) and `Solution.lean` (the proofs). The comparator checks the proofs against the audited statements, and `CheckChallenge.lean` checks the implementation mechanically.
+3. **The wiring: does Python really run the proven implementation?** Not proven, only trusted, so read:
    - `build.sh`: it must compile `lean/.lake/build/ir/Toy/Categorize.c` (the C that Lean generates from `Categorize.lean`) into `build/libtoy.so`, the library Python loads. It builds only `Toy.Categorize`, so no agent-written file is built outside the sandbox.
    - `c/toy_shim.c` and `expenses_lean.py`: they must pass arguments and results across without changing them. `difftest.py` tests this but doesn't prove it.
 
@@ -74,7 +74,7 @@ Three parts, all on one commit. `audit.sh` refuses to run on uncommitted changes
 
 - **It works.** `expenses_lean.py` prints the same report as `expenses.py`.
 - **The theorem is proven** (no `sorry`), and it is stated about the exported function itself.
-- **The audit can fail, at the right step.** `attacks.sh` runs the whole `audit.sh` on 12 sabotaged copies, each in its own throwaway git repo, plus an unchanged copy, which passes. Each sabotage is rejected, and the output shows the step meant to catch it. If a sabotage stops applying (say, after the code changes), the script reports it rather than skipping it. Last run Nov 28, 2026: all 13 verdicts as expected, with and without `--paranoid`.
+- **The audit can fail, at the right step.** `attacks.sh` runs the whole `audit.sh` on 12 sabotaged copies, each in its own throwaway git repo, plus an unchanged copy, which passes. Each sabotage is rejected, and the output shows the step meant to catch it. If a sabotage stops applying (say, after the implementation changes), the script reports it rather than skipping it. Last run Nov 28, 2026: all 13 verdicts as expected, with and without `--paranoid`.
   - In the agent's solution, after the audit was recorded; the comparator rejects:
     - the proof is `sorry`: "Illegal axiom detected: 'sorryAx'";
     - `axiom cheat : False`: "Illegal axiom detected: 'cheat'";
@@ -83,7 +83,7 @@ Three parts, all on one commit. `audit.sh` refuses to run on uncommitted changes
     - the solution defines its own `Toy.categorizeFFI` that always rejects: "Const does not match".
   - Build-time code in the solution (`#eval` probes): the audit passes, since the proof is honest, but writing project files, reading the home directory and network access are all blocked by the sandbox.
   - An edit to an audited file after the audit (`C1` changed to `True` in `Spec.lean`, with a trivial proof): the file check rejects.
-  - In the code, already present when the audit was recorded (the code is frozen but not read, so the file check can't help). The comparator accepts each one, because it judges against the challenge as compiled; `CheckChallenge.lean` rejects:
+  - In the implementation, already present when the audit was recorded (the implementation is frozen but not read, so the file check can't help). The comparator accepts each one, because it judges against the challenge as compiled; `CheckChallenge.lean` rejects:
     - a `macro_rules` line that turns the challenge's statement into `True`: statement check;
     - a `Toy.Toy.Spec.C1 := True`, which the statement `theorem Toy.c1 : Toy.Spec.C1 …` resolves to: statement check;
     - `notation` and `elab` declarations: syntax check;
@@ -107,7 +107,7 @@ Three parts, all on one commit. `audit.sh` refuses to run on uncommitted changes
 4. **`@[export]` parameters are always owned** (Lean FFI reference). The Lean function consumes its arguments; the C caller frees only the result. Lean 4.36 rejects `@&` (borrowed) on exports.
 5. **Packaging is the real cost.** The stock static runtime (`libleanrt.a`) can't be linked into a shared library, because it uses local-exec thread-local storage. Python can only load shared libraries, so we link the toolchain's `libleanshared.so`: about 230 MB on disk, since it includes the whole Lean compiler. Options not yet tried:
    - build the Lean runtime from source with settings that allow use in a shared library;
-   - compile the Lean code into a small standalone program and talk to it over a pipe;
+   - compile the Lean implementation into a small standalone program and talk to it over a pipe;
    - accept the large dependency for a demo and say so.
 6. **Toolchain details:**
    - In Lean 4.36 the module initializer is `initialize_<Package>_<Module>(uint8_t builtin)`, with no `world` argument, and `lean_initialize_runtime_module` isn't declared in `lean.h`.

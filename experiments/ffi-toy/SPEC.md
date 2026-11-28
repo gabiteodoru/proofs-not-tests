@@ -73,7 +73,7 @@ Stated, as now, for any function with the shape of `categorizeFFI`, and then app
 
 C2, C3 and C4 together determine whether the outcome is accept or reject for every argument, and the accepted string when it is accept: this is a full functional spec, apart from the error messages. C1 follows from C2, C3 and C4 (C2 covers invalid arguments, C3 and C4 valid ones). It is stated separately because it is the security property, and it should stay readable on its own.
 
-Note for the write-up: for a function this small, a full functional spec is close to a second implementation. Its value is that it is written independently, in terms a reader can check, and that the proof ties the code to it. For PyJWT the spec is about API properties (S1–S4), not the full behaviour; that's where spec and code differ most.
+Note for the write-up: for a function this small, a full functional spec is close to a second implementation. Its value is that it is written independently, in terms a reader can check, and that the proof ties the implementation to it. For PyJWT the spec is about API properties (S1–S4), not the full behaviour; that's where spec and implementation differ most.
 
 ## Boundary (Python only; trusted and tested, not proven)
 

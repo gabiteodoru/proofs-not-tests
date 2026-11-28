@@ -8,9 +8,9 @@ Run by `audit.sh` (`lake build Challenge`, then
 `lake env lean --run ../CheckChallenge.lean` from `lean/`). Why these checks
 exist: `notes/audit-integrity.md`, Issues 4 and 5.
 
-It loads the compiled challenge as data: no source is parsed while the code's
-macros are active, and no initializers run (`loadExts := false`). It doesn't
-load the solution at all. Names are written with a single backtick, which makes
+It loads the compiled challenge as data: no source is parsed while the
+implementation's macros are active, and no initializers run
+(`loadExts := false`). It doesn't load the solution at all. Names are written with a single backtick, which makes
 a literal name that is never resolved, so shadowing can't change what they mean.
 -/
 
@@ -19,8 +19,8 @@ from literal names. Must list the same theorems as `lean/comparator.json`. -/
 def expected : List (Name × Expr) :=
   [(`Toy.c1, mkApp (mkConst `Toy.Spec.C1) (mkConst `Toy.categorizeFFI))]
 
-/-- The module holding the code (not read by hand, so checked mechanically). -/
-def codeModule : Name := `Toy.Categorize
+/-- The module holding the implementation (not read by hand, so checked mechanically). -/
+def implModule : Name := `Toy.Categorize
 
 /-- Declarations whose type marks them as new syntax: parsers, macros, elaborators. -/
 def syntaxTypes : List Name :=
@@ -35,9 +35,9 @@ def report (ok : Bool) (what : String) : IO Bool := do
 def main : IO UInt32 := do
   initSearchPath (← findSysroot)
   let env ← importModules #[{ module := `Challenge }] {} (loadExts := false)
-  let some idx := env.getModuleIdx? codeModule
-    | IO.println s!"FAILED module {codeModule} not found"; return 1
-  let code := env.header.moduleData[idx.toNat]!
+  let some idx := env.getModuleIdx? implModule
+    | IO.println s!"FAILED module {implModule} not found"; return 1
+  let impl := env.header.moduleData[idx.toNat]!
 
   -- Statements: each theorem states exactly the expected term.
   let mut stmtsOk := true
@@ -47,19 +47,19 @@ def main : IO UInt32 := do
       | none => report false s!"{name} not found"
     stmtsOk := stmtsOk && ok
 
-  -- Syntax: the code module declares no macros, notation, parsers or elaborators.
-  let bad := code.constants.toList.filter fun c =>
+  -- Syntax: the implementation module declares no macros, notation, parsers or elaborators.
+  let bad := impl.constants.toList.filter fun c =>
     match c.type.getAppFn with
     | .const n _ => syntaxTypes.contains n
     | _ => false
-  let syntaxOk ← report bad.isEmpty s!"code declares no syntax {bad.map (·.name)}"
+  let syntaxOk ← report bad.isEmpty s!"implementation declares no syntax {bad.map (·.name)}"
 
   -- Export: `categorizeFFI` is exported to C as `toy_categorize`, the symbol the shim calls.
   let exportName := getExportNameFor? env `Toy.categorizeFFI
   let exportOk ← report (exportName == some `toy_categorize) s!"export name is {exportName}"
 
-  -- Compiled code: nothing in the code module has its compiled code swapped out.
-  let swapped := code.constNames.toList.filter fun n =>
+  -- Compiled code: nothing in the implementation module has its compiled code swapped out.
+  let swapped := impl.constNames.toList.filter fun n =>
     (Compiler.getImplementedBy? env n).isSome || isExtern env n
   let swapOk ← report swapped.isEmpty s!"no swapped compiled code {swapped}"
 

@@ -25,8 +25,8 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 TOP="$(git -C "$HERE" rev-parse --show-toplevel)"
 REL="$(git -C "$HERE" rev-parse --show-prefix)"     # this folder, relative to the repo root
 
-# The human-audited files, relative to this folder. The code (Categorize.lean)
-# is here because it's frozen, not because it's read. Proof files are not.
+# The human-audited files, relative to this folder. The implementation
+# (Categorize.lean) is here because it's frozen, not because it's read. Proof files are not.
 AUDITED_FILES=(
   SPEC.md
   lean/Toy/Spec.lean

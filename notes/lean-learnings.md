@@ -68,19 +68,19 @@ Run on a scratch copy of `experiments/ffi-toy/lean/`; the repo wasn't changed. S
 
 Tested with a prototype's `run-attacks.sh` (in git history, removed Nov 28). Every attack in this section now runs through the toy's whole audit in `experiments/ffi-toy/attacks.sh`.
 
-- **A macro in the code changes the challenge's statement.** One line appended to `Categorize.lean`, ``macro_rules | `(Toy.Spec.C1 $f) => `(True)``, made the challenge's `Toy.c1` state `True`, and the comparator accepted a trivial proof. It needed no `import Lean`: `macro_rules` is available from Lean's prelude.
-- **`theorem Toy.c1 : …` reads its signature inside namespace `Toy`.** So `Toy.Spec.C1` in the signature resolves to `Toy.Toy.Spec.C1` if the code defines one. Tested: the statement became `Toy.Toy.Spec.C1 Toy.categorizeFFI`, and the comparator accepted. `_root_.` would stop this case, but not the macro.
+- **A macro in the implementation changes the challenge's statement.** One line appended to `Categorize.lean`, ``macro_rules | `(Toy.Spec.C1 $f) => `(True)``, made the challenge's `Toy.c1` state `True`, and the comparator accepted a trivial proof. It needed no `import Lean`: `macro_rules` is available from Lean's prelude.
+- **`theorem Toy.c1 : …` reads its signature inside namespace `Toy`.** So `Toy.Spec.C1` in the signature resolves to `Toy.Toy.Spec.C1` if the implementation defines one. Tested: the statement became `Toy.Toy.Spec.C1 Toy.categorizeFFI`, and the comparator accepted. `_root_.` would stop this case, but not the macro.
 - **Why the comparator can't catch these:** it checks that the solution proves the challenge's statement, whatever the challenge compiled to. A subverted challenge is still a consistent challenge.
-- **A check that inspects the compiled challenge as data catches both.** A `lean --run` script that imports only `Lean`, and loads the challenge with `importModules #[{ module := `Challenge }] {} (loadExts := false)`, parses no source while the code's macros are active and runs no initializers. Then:
+- **A check that inspects the compiled challenge as data catches both.** A `lean --run` script that imports only `Lean`, and loads the challenge with `importModules #[{ module := `Challenge }] {} (loadExts := false)`, parses no source while the implementation's macros are active and runs no initializers. Then:
   - compare `(env.find? `Toy.c1).type` with `mkApp (mkConst `Toy.Spec.C1) (mkConst `Toy.categorizeFFI)`, using single-backtick names, which are literal names that are never resolved;
-  - list the code module's constants (`env.header.moduleData[idx].constants`) whose type's head is `ParserDescr`, `TrailingParserDescr`, `Macro`, `Elab.Term.TermElab`, `Elab.Command.CommandElab`, `Elab.Tactic.Tactic`, `Parser.Parser` or `Parser.TrailingParser`.
+  - list the implementation module's constants (`env.header.moduleData[idx].constants`) whose type's head is `ParserDescr`, `TrailingParserDescr`, `Macro`, `Elab.Term.TermElab`, `Elab.Command.CommandElab`, `Elab.Tactic.Tactic`, `Parser.Parser` or `Parser.TrailingParser`.
   - Seen in tests: `macro_rules` creates `_aux_<Module>___macroRules_<...>` (type `Macro`); `notation` creates a `ParserDescr` plus a macro; `elab` creates a `ParserDescr` plus `_aux_…_elabRules_…` (type `TermElab`).
   - Now in the toy's audit: `experiments/ffi-toy/CheckChallenge.lean`.
 
 ### Not covered by the comparator
 
-It checks kernel declarations only. `@[export]`, `@[implemented_by]` and `@[extern]` aren't part of them, so the toy's checks 3 and 4, and "the library Python loads is built from the challenge's code", are still needed. They can run on the trusted challenge alone, where shadowing from the solution can't reach them.
-- Tested Nov 28: `getExportNameFor? env` and `Compiler.getImplementedBy? env` / `isExtern env` work on an environment loaded with `importModules … (loadExts := false)`. They returned `toy_categorize` and `[]` on the honest copy, and `toy_other` and `[Toy.guess]` on the toy's two code sabotages. The comparator accepted both sabotages.
+It checks kernel declarations only. `@[export]`, `@[implemented_by]` and `@[extern]` aren't part of them, so the toy's checks 3 and 4, and "the library Python loads is built from the challenge's implementation", are still needed. They can run on the trusted challenge alone, where shadowing from the solution can't reach them.
+- Tested Nov 28: `getExportNameFor? env` and `Compiler.getImplementedBy? env` / `isExtern env` work on an environment loaded with `importModules … (loadExts := false)`. They returned `toy_categorize` and `[]` on the honest copy, and `toy_other` and `[Toy.guess]` on the toy's two implementation sabotages. The comparator accepted both sabotages.
 
 ## Nov 28, 2026: silencing the `sorry` warning for one declaration
 
