@@ -41,6 +41,7 @@ AUDITED_FILES=(
   build.sh
   audit.sh
   expenses_lean.py        # the Python glue: its type checks are read (SPEC.md, "Boundary")
+  c/toy_shim.c            # the C shim: read (README, "How to audit", part 3)
 )
 
 # 1. Committed files only.
